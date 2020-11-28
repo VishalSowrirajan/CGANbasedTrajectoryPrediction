@@ -7,9 +7,10 @@ TEST_DATASET_PATH = 'Cross_Domain_Dataset/test'
 CHECKPOINT_NAME = 'Checkpoints/ApolloScape_Dataset/chkpt_200epoch_withDecoderPooling.pt'
 
 # DATASET FLAGS FOR ANALYZING THE MAX SPEEDS.
-PED_MAX_SPEED = 26.09
-VEH_MAX_SPEED = 43.97
-CYC_MAX_SPEED = 144.60
+# As there are very fewer speed above the below mentioned speeds, we consider them as outliers.
+PED_MAX_SPEED = 18.26
+VEH_MAX_SPEED = 28.67
+CYC_MAX_SPEED = 21.98
 
 # PYTORCH DATA LOADER OPTIONS
 NUM_WORKERS = 4

@@ -9,8 +9,7 @@ def make_mlp(dim_list, activation='leakyrelu', batch_norm=True, dropout=0):
     layers = []
     for dim_in, dim_out in zip(dim_list[:-1], dim_list[1:]):
         layers.append(nn.Linear(dim_in, dim_out))
-        if batch_norm:
-            layers.append(nn.BatchNorm1d(dim_out))
+        layers.append(nn.BatchNorm1d(dim_out))
         if activation == 'relu':
             layers.append(nn.ReLU())
         elif activation == 'leakyrelu':
@@ -124,12 +123,15 @@ class SocialSpeedPoolingModule(nn.Module):
         mlp_pre_dim = self.embedding_dim + self.h_dim
         mlp_pre_pool_dims = [mlp_pre_dim, 512, BOTTLENECK_DIM]
 
-        self.pos_embedding = nn.Linear(3, EMBEDDING_DIM)
+        self.pos_embedding = nn.Sequential(nn.Linear(3, EMBEDDING_DIM * 2), nn.LeakyReLU(),
+                                           nn.Linear(EMBEDDING_DIM * 2, EMBEDDING_DIM))
         self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_LEAKYRELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
     def forward(self, h_states, seq_start_end, train_or_test, speed_to_add, last_pos, speed, label,
                 ped_features=None):
         pool_h = []
+        if train_or_test == 1:
+            speed = speed_control(speed, SPEED_TO_ADD, seq_start_end, label)
         for _, (start, end) in enumerate(seq_start_end):
             start = start.item()
             end = end.item()
@@ -137,14 +139,15 @@ class SocialSpeedPoolingModule(nn.Module):
             curr_hidden_ped = h_states[start:end]
             repeat_hstate = curr_hidden_ped.repeat(num_ped, 1).view(num_ped, num_ped, -1)
 
+            #feature = torch.cat([last_pos[start:end], speed[start:end], label[start:end, :]], dim=1)
             feature = torch.cat([last_pos[start:end], speed[start:end]], dim=1)
-            if train_or_test == 1:
-                speed = speed_control(speed, SPEED_TO_ADD, seq_start_end, label[start:end])
-                feature = torch.cat([last_pos[start:end], speed[start:end]], dim=1)
             curr_end_pos_1 = feature.repeat(num_ped, 1)
-            curr_end_pos_2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, 3)
-            social_features = curr_end_pos_1[:, :2] - curr_end_pos_2[:, :2]
-            social_features_with_speed = torch.cat([social_features, curr_end_pos_1[:, 2].view(-1, 1)], dim=1)
+            #curr_end_pos2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, 4)
+            curr_end_pos2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, 3)
+            social_features = curr_end_pos_1[:, :2] - curr_end_pos2[:, :2]
+            #social_features_with_speed = torch.cat([social_features, curr_end_pos_1[:, 2].view(-1, 1), curr_end_pos_1[:, -1].view(-1, 1)], dim=1)
+            social_features_with_speed = torch.cat(
+                [social_features, curr_end_pos_1[:, 2].view(-1, 1)], dim=1)
 
             # POSITION SPEED Pooling
             position_feature_embedding = self.pos_embedding(social_features_with_speed.contiguous().view(-1, 3))
@@ -160,56 +163,29 @@ class SocialSpeedPoolingModule(nn.Module):
 def speed_control(pred_traj_first_speed, speed_to_add, seq_start_end, label, id=None):
     """This method represents the CONTROL MODULE in the paper. Using this module, user can add
     speed at one/more frames, stop the pedestrians and so on"""
+    simulated_traj = []
     for _, (start, end) in enumerate(seq_start_end):
         start = start.item()
         end = end.item()
 
-        if ADD_SPEED_EVERY_FRAME or ADD_SPEED_PARTICULAR_FRAME:
-            if ETH:
-                speed_to_add = ETH_MAX_SPEED * SPEED_TO_ADD
-            if HOTEL:
-                speed_to_add = HOTEL_MAX_SPEED * SPEED_TO_ADD
-            if UNIV:
-                speed_to_add = UNIV_MAX_SPEED * SPEED_TO_ADD
-            if ZARA1:
-                speed_to_add = ZARA1_MAX_SPEED * SPEED_TO_ADD
-            if ZARA2:
-                speed_to_add = ZARA2_MAX_SPEED * SPEED_TO_ADD
-
-            # To add an additional speed for each pedestrain and every frame
-            if ADD_SPEED_EVERY_FRAME:
-                for a in range(start, end):
-                    current_speed = inverseSigmoid(pred_traj_first_speed[a])
-                    if sigmoid(current_speed + speed_to_add) < 1:
-                        pred_traj_first_speed[a] = sigmoid(current_speed + speed_to_add)
-                    else:
-                        pred_traj_first_speed[a] = MAX_SPEED
-            elif ADD_SPEED_PARTICULAR_FRAME and len(FRAMES_TO_ADD_SPEED) > 0:
-                # Add speed to particular frame for all pedestrian
-                sorted_frames = FRAMES_TO_ADD_SPEED.sort()
-                for frames in sorted_frames:
-                    if id == frames and id != 0:
-                        for a in range(start, end):
-                            pred_traj_first_speed[a] = pred_traj_first_speed[a] + sigmoid(speed_to_add)
-                    else:
-                        pred_traj_first_speed[a] = pred_traj_first_speed[a]
-        elif STOP_PED:
+        if STOP_PED:
             # To stop all pedestrians
             speed_to_add = 0.1
             for a, b in zip(range(start, end), label):
-                if b == 0.1 or b == 0.2:
-                    pred_traj_first_speed[a] = sigmoid(14.4)
-                elif b == 0.3:
-                    pred_traj_first_speed[a] = sigmoid(2.6)
-                elif b == 0.4:
-                    pred_traj_first_speed[a] = sigmoid(4.3)
+                if torch.eq(b, 0.1):
+                    simulated_traj.append(torch.tensor(sigmoid(0.8 * (VEH_MAX_SPEED/10))))
+                elif torch.eq(b, 0.3):
+                    simulated_traj.append(torch.tensor(sigmoid(0.4 * (PED_MAX_SPEED/10))))
+                else:
+                    simulated_traj.append(torch.tensor(sigmoid(0.0 * (CYC_MAX_SPEED/10))))
                 #pred_traj_first_speed[a] = sigmoid(speed_to_add)
         elif CONSTANT_SPEED_FOR_ALL_PED:
             # To make all pedestrians travel at same and constant speed throughout
             for a in range(start, end):
                 pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED)
 
-    return pred_traj_first_speed.view(-1, 1)
+    simulated_traj = torch.Tensor(simulated_traj).view(-1, 1)
+    return simulated_traj
 
 
 class TrajectoryGenerator(nn.Module):
@@ -292,10 +268,10 @@ class TrajectoryGenerator(nn.Module):
                 label = pred_label[:, start:end, :]
                 pred_test_traj = relative_to_abs(pred_test_traj_rel, obs_test_traj[-1])
                 pred_traj_gt = pred_traj[:, start:end, :]
-                speed_added = pred_ped_speed[:, start:end, :]
                 seq_tuple = (start, end)
-                comb = torch.cat([pred_traj_gt, pred_test_traj, label], dim=2)
-                print(speed_added, pred_test_traj)
+                comb = torch.cat([obs_test_traj, pred_traj_gt, pred_test_traj, label], dim=2)
+                print(obs_test_traj)
+                print(pred_test_traj)
                 print(comb)
                 outputs[seq_tuple] = pred_test_traj
         else:
@@ -310,7 +286,7 @@ class TrajectoryDiscriminator(nn.Module):
         self.encoder = Encoder(h_dim=H_DIM_DIS)
 
         real_classifier_dims = [H_DIM_DIS, MLP_DIM, 1]
-        self.real_classifier = make_mlp(real_classifier_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
+        self.real_classifier = make_mlp(real_classifier_dims, activation=ACTIVATION_LEAKYRELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
     def forward(self, traj, traj_rel, ped_speed, label_info, seq_start_end=None):
         final_h = self.encoder(traj_rel, ped_speed, label_info)  # final layer of the encoder is returned

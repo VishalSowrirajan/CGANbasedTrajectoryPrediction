@@ -7,7 +7,7 @@ from constants import *
 
 from trajectories import data_loader
 from utils import gan_g_loss, gan_d_loss, l2_loss, mean_speed_error, \
-    final_speed_error, displacement_error, final_displacement_error, relative_to_abs, bce_loss
+    final_speed_error, displacement_error, final_displacement_error, relative_to_abs, bce_loss, displacement_error_test
 
 from models import TrajectoryGenerator, TrajectoryDiscriminator
 
@@ -24,33 +24,38 @@ def main():
     train_metric = 0
     print("Process Started")
     print("Initializing train dataset")
-    train_dset, train_loader = data_loader(TRAIN_DATASET_PATH, train_metric)
+    train_dset, train_loader = data_loader(TRAIN_DATASET_PATH, train_metric, ' ')
     print("Initializing val dataset")
-    _, val_loader = data_loader(VAL_DATASET_PATH, train_metric)
+    val_dset, val_loader = data_loader(VAL_DATASET_PATH, train_metric, '\t')
 
     iterations_per_epoch = len(train_dset) / BATCH / D_STEPS
     if NUM_EPOCHS:
         NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS)
+        print('TRAIN num iterations per epoch: ', NUM_ITERATIONS)
+    iterations_per_epoch = len(val_dset) / BATCH / D_STEPS
+    if NUM_EPOCHS:
+        NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS)
+        print('VAL num iterations per epoch: ', NUM_ITERATIONS)
 
-        generator = TrajectoryGenerator()
+    generator = TrajectoryGenerator()
 
-        generator.apply(init_weights)
-        generator.type(torch.FloatTensor).train()
-        print(generator)
+    generator.apply(init_weights)
+    generator.type(torch.FloatTensor).train()
+    print(generator)
 
-        discriminator = TrajectoryDiscriminator()
+    discriminator = TrajectoryDiscriminator()
 
-        discriminator.apply(init_weights)
-        discriminator.type(torch.FloatTensor).train()
+    discriminator.apply(init_weights)
+    discriminator.type(torch.FloatTensor).train()
 
-        print('Here is the discriminator:')
-        print(discriminator)
+    print('Here is the discriminator:')
+    print(discriminator)
 
     g_loss_fn = gan_g_loss
     d_loss_fn = gan_d_loss
 
-    optimizer_g = optim.Adam(generator.parameters(), lr=G_LEARNING_RATE)
-    optimizer_d = optim.Adam(discriminator.parameters(), lr=D_LEARNING_RATE)
+    optimizer_g = optim.RMSprop(generator.parameters(), lr=G_LEARNING_RATE)
+    optimizer_d = optim.RMSprop(discriminator.parameters(), lr=D_LEARNING_RATE)
 
     t, epoch = 0, 0
     checkpoint = {
@@ -99,56 +104,37 @@ def main():
                 for k, v in sorted(metrics_train.items()):
                     print('  [train] {}: {:.3f}'.format(k, v))
 
-                wa_ade_list.append(metrics_val['WSADE'])
-                wa_fde_list.append(metrics_val['WSFDE'])
+                #wa_ade_list.append(metrics_train['WSADE'])
+                #wa_fde_list.append(metrics_train['WSFDE'])
 
                 ade_list.append(metrics_val['ade'])
-                fde_list.append(metrics_val['fde'])
+                #fde_list.append(metrics_train['fde'])
 
                 # VEHICLE PARAMS
-                veh_ade_list.append(metrics_val['veh_ade'])
-                veh_fde_list.append(metrics_val['veh_fde'])
+                #veh_ade_list.append(metrics_train['veh_ade'])
+                #veh_fde_list.append(metrics_train['veh_fde'])
 
                 # PEDESTRIAN PARAMS
-                ped_ade_list.append(metrics_val['ped_ade'])
-                ped_fde_list.append(metrics_val['ped_fde'])
+                #ped_ade_list.append(metrics_train['ped_ade'])
+                #ped_fde_list.append(metrics_train['ped_fde'])
 
                 # BICYCLIST PARAMS
-                cyc_ade_list.append(metrics_val['cyc_ade'])
-                cyc_fde_list.append(metrics_val['cyc_fde'])
+                #cyc_ade_list.append(metrics_train['cyc_ade'])
+                #cyc_fde_list.append(metrics_train['cyc_fde'])
 
-                avg_speed_error.append(metrics_val['msae'])
-                f_speed_error.append(metrics_val['fse'])
-
-                if metrics_val.get('WSADE') == min(wa_ade_list) or metrics_val['WSADE'] < min(wa_ade_list):
-                    print('New low for wa_avg_disp_error')
-                if metrics_val.get('WSFDE') == min(wa_fde_list) or metrics_val['WSFDE'] < min(wa_fde_list):
-                    print('New low for wa_final_disp_error')
+                #avg_speed_error.append(metrics_train['msae'])
+                #f_speed_error.append(metrics_train['fse'])
 
                 if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list):
-                    print('New low for avg_disp_error')
-                if metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
-                    print('New low for final_disp_error')
+                    print('New low for weighted average')
+                    checkpoint['g_best_state'] = generator.state_dict()
+                #if metrics_val.get('WSFDE') == min(wa_fde_list) or metrics_val['WSFDE'] < min(wa_fde_list):
+                #    print('New low for wa_final_disp_error')
 
-                #if metrics_val.get('veh_ade') == min(veh_ade_list) or metrics_val['veh_ade'] < min(veh_ade_list):
-                #    print('New low for veh avg_disp_error')
-                #if metrics_val.get('veh_fde') == min(veh_fde_list) or metrics_val['veh_fde'] < min(veh_fde_list):
-                #    print('New low for veh f_disp_error')
-
-                #if metrics_val.get('ped_ade') == min(ped_ade_list) or metrics_val['ped_ade'] < min(ped_ade_list):
-                #    print('New low for ped avg_disp_error')
-                #if metrics_val.get('ped_fde') == min(ped_fde_list) or metrics_val['ped_fde'] < min(ped_fde_list):
-                #    print('New low for ped f_disp_error')
-
-                #if metrics_val.get('cyc_ade') == min(cyc_ade_list) or metrics_val['cyc_ade'] < min(cyc_ade_list):
-                #    print('New low for cyc avg_disp_error')
-                #if metrics_val.get('cyc_fde') == min(cyc_fde_list) or metrics_val['cyc_fde'] < min(cyc_fde_list):
-                #    print('New low for cyc f_disp_error')
-
-                #if metrics_val.get('msae') == min(avg_speed_error) or metrics_val['msae'] < min(avg_speed_error):
-                #    print('New low for avg_speed_error')
-                #if metrics_val.get('fse') == min(f_speed_error) or metrics_val['fse'] < min(f_speed_error):
-                #    print('New low for final_speed_error')
+                #if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list):
+                #    print('New low for avg_disp_error')
+                #if metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
+                #    print('New low for final_disp_error')
 
                 checkpoint['g_state'] = generator.state_dict()
                 checkpoint['g_optim_state'] = optimizer_g.state_dict()
@@ -189,7 +175,8 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
     scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label_info, seq_start_end)
 
     data_loss = d_loss_fn(scores_real, scores_fake)
-    dis_ade, _ = displacement_error(pred_traj_fake, pred_traj_gt)
+    dis_ade = displacement_error_test(pred_traj_fake, pred_traj_gt, seq_start_end, pred_label, mode='sum')
+    #dis_ade, _ = displacement_error(pred_traj_fake, pred_traj_gt)
     total_loss = data_loss + dis_ade
     losses['D_data_loss'] = data_loss.item()
     loss += total_loss
@@ -245,8 +232,9 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
 
     scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label_info, seq_start_end)
     discriminator_loss = g_loss_fn(scores_fake)
-    gen_ade, _ = displacement_error(pred_traj_fake, pred_traj_gt)
-    total_loss = discriminator_loss + gen_ade
+    gen_ade = displacement_error_test(pred_traj_fake, pred_traj_gt, seq_start_end, pred_label, mode='sum')
+
+    total_loss = discriminator_loss
     loss += total_loss
     losses['G_discriminator_loss'] = discriminator_loss.item()
     losses['G_total_loss'] = loss.item()
@@ -285,7 +273,8 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
                 pred_traj_fake_rel, loss_mask
             )
 
-            general_ade, _ = displacement_error(pred_traj_fake, pred_traj_gt)  # ADE for All
+            weighted_ade = displacement_error_test(pred_traj_fake, pred_traj_gt, seq_start_end, pred_label, mode='sum')
+            #general_ade, _ = displacement_error(pred_traj_fake, pred_traj_gt)  # ADE for All
             general_fde = final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1])  # FDE for All
             # Get Label-wise Trajectories
             veh_fake, veh_gt, ped_fake, ped_gt, cyc_fake, cyc_gt = get_diff_traj(pred_traj_fake, pred_traj_gt, pred_label)
@@ -321,7 +310,7 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
             g_l2_losses_abs.append(g_l2_loss_abs.item())
             g_l2_losses_rel.append(g_l2_loss_rel.item())
 
-            ade_error.append(general_ade.item())
+            ade_error.append(weighted_ade.item())
             fde_error.append(general_fde.item())
             veh_disp_error.append(veh_ade.item())
             ped_disp_error.append(ped_ade.item())
@@ -341,27 +330,27 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
             if total_traj >= NUM_SAMPLE_CHECK:
                 break
 
-    veh_wa_ade = VEHICLE_COE * (sum(veh_disp_error) / (veh_total_traj * PRED_LEN))
-    ped_wa_ade = PEDESTRIAN_COE * (sum(ped_disp_error) / (ped_total_traj * PRED_LEN))
-    cyc_wa_ade = BICYCLE_COE * (sum(cyc_disp_error) / (cyc_total_traj * PRED_LEN))
-    veh_wa_fde = VEHICLE_COE * (sum(veh_f_disp_error) / veh_total_traj)
-    ped_wa_fde = PEDESTRIAN_COE * (sum(ped_f_disp_error) / ped_total_traj)
-    cyc_wa_fde = BICYCLE_COE * (sum(cyc_f_disp_error) / cyc_total_traj)
-    metrics['d_loss'] = sum(d_losses) / len(d_losses)
-    metrics['g_l2_loss_abs'] = sum(g_l2_losses_abs) / loss_mask_sum
-    metrics['g_l2_loss_rel'] = sum(g_l2_losses_rel) / loss_mask_sum
-    metrics['veh_ade'] = veh_wa_ade
-    metrics['ped_ade'] = ped_wa_ade
-    metrics['cyc_ade'] = cyc_wa_ade
-    metrics['veh_fde'] = veh_wa_fde
-    metrics['ped_fde'] = ped_wa_fde
-    metrics['cyc_fde'] = cyc_wa_fde
-    metrics['WSADE'] = veh_wa_ade + ped_wa_ade + cyc_wa_ade
-    metrics['WSFDE'] = veh_wa_fde + ped_wa_fde + cyc_wa_fde
-    metrics['ade'] = sum(ade_error) / (total_traj * PRED_LEN)
-    metrics['fde'] = sum(fde_error) / total_traj
-    metrics['msae'] = sum(mean_speed_disp_error) / (total_traj * PRED_LEN)
-    metrics['fse'] = sum(final_speed_disp_error) / total_traj
+    #veh_wa_ade = VEHICLE_COE * (sum(veh_disp_error) / (veh_total_traj * PRED_LEN))
+    #ped_wa_ade = PEDESTRIAN_COE * (sum(ped_disp_error) / (ped_total_traj * PRED_LEN))
+    #cyc_wa_ade = BICYCLE_COE * (sum(cyc_disp_error) / (cyc_total_traj * PRED_LEN))
+    #veh_wa_fde = VEHICLE_COE * (sum(veh_f_disp_error) / veh_total_traj)
+    #ped_wa_fde = PEDESTRIAN_COE * (sum(ped_f_disp_error) / ped_total_traj)
+    #cyc_wa_fde = BICYCLE_COE * (sum(cyc_f_disp_error) / cyc_total_traj)
+    #metrics['d_loss'] = sum(d_losses) / len(d_losses)
+    #metrics['g_l2_loss_abs'] = sum(g_l2_losses_abs) / loss_mask_sum
+    #metrics['g_l2_loss_rel'] = sum(g_l2_losses_rel) / loss_mask_sum
+    #metrics['veh_ade'] = veh_wa_ade
+    #metrics['ped_ade'] = ped_wa_ade
+    #metrics['cyc_ade'] = cyc_wa_ade
+    #metrics['veh_fde'] = veh_wa_fde
+    #metrics['ped_fde'] = ped_wa_fde
+    #metrics['cyc_fde'] = cyc_wa_fde
+    #metrics['WSADE'] = veh_wa_ade + ped_wa_ade + cyc_wa_ade
+    #metrics['WSFDE'] = veh_wa_fde + ped_wa_fde + cyc_wa_fde
+    metrics['ade'] = sum(ade_error) / len(ade_error)
+    #metrics['fde'] = sum(fde_error) / total_traj
+    #metrics['msae'] = sum(mean_speed_disp_error) / (total_traj * PRED_LEN)
+    #metrics['fse'] = sum(final_speed_disp_error) / total_traj
 
     generator.train()
     return metrics

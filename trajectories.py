@@ -12,10 +12,11 @@ from constants import *
 logger = logging.getLogger(__name__)
 
 
-def data_loader(path, metric):
+def data_loader(path, metric, delimiter):
     dset = TrajectoryDataset(
         path,
-        metric)
+        metric,
+        delimiter)
 
     loader = DataLoader(
         dset,
@@ -57,22 +58,18 @@ def sigmoid(x):
     return 1 / (1 + math.exp(-x))
 
 
-def read_file(_path, delim='\t'):
+def read_file(_path, delim):
     data = []
     with open(_path, 'r') as f:
         for line in f:
-            line = line.strip().split(' ')
+            line = line.strip().split(delim)
             line = [float(i) for i in line]
             data.append(line[:5])
+            #data.append(line[:])
     return np.asarray(data)
 
 
 def get_min_max_distance(seq_len, all_files):
-    #ped_speed = []
-    #small_vehicle_speed = []
-    #big_vehicle_speed = []
-    #cyclist_speed = []
-    #other_speed = []
     all_speed, cyclist_speed, ped_speed, vehicle_speed, other_speed = [], [], [], [], []
     for path in all_files:
         data = read_file(path, ' ')
@@ -90,7 +87,9 @@ def get_min_max_distance(seq_len, all_files):
                 label = curr_obj_seq[0, 2]
                 pad_front = frames.index(curr_obj_seq[0, 0]) - idx
                 pad_end = frames.index(curr_obj_seq[-1, 0]) - idx + 1
-                if pad_end - pad_front != seq_len and label != 5:
+                if label == 5:
+                    continue
+                if pad_end - pad_front != seq_len:
                     continue
                 curr_obj_x_axis = [np.square(t - s) for s, t in
                                            zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
@@ -122,41 +121,6 @@ def get_min_max_distance(seq_len, all_files):
     min_veh_speed = np.min(vehicle_speed)
     max_cyc_speed = np.amax(cyclist_speed)
     min_cyc_speed = np.min(cyclist_speed)
-    #ped_speed = np.array(ped_speed).reshape(-1, 1)
-    #small_vehicle_speed = np.array(small_vehicle_speed).reshape(-1, 1)
-    #big_vehicle_speed = np.array(big_vehicle_speed).reshape(-1, 1)
-    #cyclist_speed = np.array(cyclist_speed).reshape(-1, 1)
-    #other_speed = np.array(other_speed).reshape(-1, 1)
-#    fig, ax = plt.subplots(figsize=(16, 8))
-#    ax.scatter(other_speed, other_speed)
-#    plt.show()
-
-    # Find the domain-wise max and min speed to normalize the speed values
-    #if ped_speed.size != 0:
-    #    max_ped_speed = np.amax(ped_speed)
-    #    min_ped_speed = np.min(ped_speed)
-    #else:
-    #    max_ped_speed, min_ped_speed = 0, 0
-    #if big_vehicle_speed.size != 0:
-    #    max_big_vehicle_speed = np.amax(big_vehicle_speed)
-    #    min_big_vehicle_speed = np.min(big_vehicle_speed)
-    #else:
-    #    max_big_vehicle_speed, min_big_vehicle_speed = 0, 0
-    #if small_vehicle_speed.size != 0:
-    #    max_small_vehicle_speed = np.amax(small_vehicle_speed)
-    #    min_small_vehicle_speed = np.min(small_vehicle_speed)
-    #else:
-    #    max_small_vehicle_speed, min_small_vehicle_speed = 0, 0
-    #if cyclist_speed.size != 0:
-    #    max_cyclist_speed = np.amax(cyclist_speed)
-    #    min_cyclist_speed = np.min(cyclist_speed)
-    #else:
-    #    max_cyclist_speed, min_cyclist_speed = 0, 0
-    #if other_speed.size != 0:
-    #    max_other_speed = np.amax(other_speed)
-    #    min_other_speed = np.min(other_speed)
-    #else:
-    #    max_other_speed, min_other_speed = 0, 0
 
     return max_speed, min_speed
 
@@ -165,13 +129,14 @@ class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
 
     def __init__(
-            self, data_dir, metric=0
+            self, data_dir, metric=0, delimiter= ' '
     ):
         super(TrajectoryDataset, self).__init__()
 
         self.data_dir = data_dir
         SEQ_LEN = OBS_LEN + PRED_LEN
         self.train_or_test = metric
+        self.delimiter = delimiter
 
         all_files = os.listdir(self.data_dir)
         all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
@@ -183,15 +148,12 @@ class TrajectoryDataset(Dataset):
         features = []
         loss_mask_list = []
         for path in all_files:
-            data = read_file(path, '\t')
+            data = read_file(path, self.delimiter)
             frames = np.unique(data[:, 0]).tolist()
             frame_data = []
             for frame in frames:
                 frame_data.append(data[frame == data[:, 0], :])
             num_sequences = int(math.ceil((len(frames) - SEQ_LEN + 1)))
-            max_speed, min_speed = get_min_max_distance(SEQ_LEN, all_files)
-            #if self.train_or_test == 1:
-            #    min, max = get_min_max_speed_labels(num_sequences, frame_data, self.seq_len, frames)
             for idx in range(0, num_sequences + 1):
                 curr_seq_data = np.concatenate(
                     frame_data[idx:idx + SEQ_LEN], axis=0)
@@ -209,24 +171,31 @@ class TrajectoryDataset(Dataset):
                     curr_obj_seq = np.around(curr_obj_seq, decimals=4)
                     pad_front = frames.index(curr_obj_seq[0, 0]) - idx
                     pad_end = frames.index(curr_obj_seq[-1, 0]) - idx + 1
+                    #label = curr_obj_seq[0, 4]
                     label = curr_obj_seq[0, 2]
                     curr_seq_transpose = np.transpose(curr_obj_seq[:, 3:5])
-                    if pad_end - pad_front == SEQ_LEN and curr_seq_transpose.shape[1] == SEQ_LEN and label != 5:
+                    #curr_seq_transpose = np.transpose(curr_obj_seq[:, 5:7])
+                    if label == 5:
+                        continue
+                    if pad_end - pad_front == SEQ_LEN and curr_seq_transpose.shape[1] == SEQ_LEN:
                         curr_ped_x_axis_new = [0.0] + [np.square(t - s) for s, t in
+                                                       #zip(curr_obj_seq[:, 5], curr_obj_seq[1:, 5])]
                                                        zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
                         curr_ped_y_axis_new = [0.0] + [np.square(t - s) for s, t in
+                                                       #zip(curr_obj_seq[:, 6], curr_obj_seq[1:, 6])]
                                                        zip(curr_obj_seq[:, 4], curr_obj_seq[1:, 4])]
 
                         curr_dist = np.sqrt(np.add(curr_ped_x_axis_new, curr_ped_y_axis_new))
-                        # Since each frame is taken with an interval of 0.4, we divide the distance with 0.4 to get speed
+                        # Since each frame is taken with an interval of 0.5, we divide the distance with 0.5 to get speed
                         curr_abs_speed = curr_dist / 0.5
-                        #curr_abs_speed = [(x - min_speed) / (max_speed - min_speed) if x > 0 else 0 for x in curr_abs_speed]
-                        if label == 1 or label == 2:  # Small Vehicles and Big Vehicles considered as Vehcile
+                        if label == 1 or label == 2:  # Small Vehicles and Big Vehicles considered as Vehicles
                             embedding_label = 0.1
                         elif label == 3:  # Pedestrians
                             embedding_label = 0.3
                         elif label == 4:  # Cyclist
                             embedding_label = 0.4
+                        else:
+                            print(label)
                         curr_abs_speed = np.around(curr_abs_speed, decimals=4)
                         curr_abs_speed = [sigmoid(x/10) for x in curr_abs_speed]
                         curr_abs_speed = np.around(curr_abs_speed, decimals=4)
@@ -252,42 +221,14 @@ class TrajectoryDataset(Dataset):
                     obj_label.append(_curr_obj_label[:num_peds_considered])
                     seq_list.append(curr_seq[:num_peds_considered])
                     seq_list_rel.append(curr_seq_rel[:num_peds_considered])
-                    #ped_seq = curr_seq[:num_peds_considered]
-                    #ped_speed_feature = _curr_abs_speed[:num_peds_considered]
-
-                    # DISTANCE, POSITION, SPEED FEATURE CONCAT EXTRACTION
-                    # Calculating the nearby pedestrian distance and speed as a preprocessing step to increase the speed
-                    # of model run
-                    #max_ped_feature = np.zeros((num_peds_considered, 57, 3))
-                    #last_pos_info = ped_seq[:, :, OBS_LEN - 1]
-                    #next_pos_speed = ped_speed_feature[:, OBS_LEN]
-                    #ped_wise_feature = []
-                    #for a in last_pos_info:
-                    #    curr_ped_feature = []
-                    #    for b, speed in zip(last_pos_info, next_pos_speed):
-                    #        if np.array_equal(a, b):
-                    #            relative_pos = np.array([0.0, 0.0])
-                    #        else:
-                    #            relative_pos = b - a
-                    #        speed = speed
-                    #        concat = np.concatenate([relative_pos.reshape(1, 2), speed.reshape(1, 1)], axis=1)
-                    #        curr_ped_feature.append(concat)
-                    #    curr_ped_feature = np.concatenate(curr_ped_feature, axis=0)
-                    #    ped_wise_feature.append(np.expand_dims(curr_ped_feature, axis=0))
-                    #ped_wise_feature = np.concatenate(ped_wise_feature, axis=0)
-                    #max_ped_feature[0:num_peds_considered, 0:num_peds_considered, :] = \
-                    #    ped_wise_feature[0:num_peds_considered, :, :]
-                    #features.append(max_ped_feature)
 
         self.num_seq = len(seq_list)
         seq_list = np.concatenate(seq_list, axis=0)
         seq_list_rel = np.concatenate(seq_list_rel, axis=0)
         obj_abs_speed = np.concatenate(obj_abs_speed, axis=0)
         obj_label = np.concatenate(obj_label, axis=0)
-        #features = np.concatenate(features, axis=0)
         loss_mask_list = np.concatenate(loss_mask_list, axis=0)
         obj_abs_speed = torch.from_numpy(obj_abs_speed).type(torch.float)
-        #self.ped_features = torch.from_numpy(features).type(torch.float)
 
         # Convert numpy -> Torch Tensor
         self.obs_traj = torch.from_numpy(seq_list[:, :, :OBS_LEN]).type(torch.float)
