@@ -19,11 +19,9 @@ def evaluate(loader, generator, num_samples):
     ade_outer, fde_outer, simulated_output, total_traj, sequences = [], [], [], [], []
     with torch.no_grad():
         for batch in loader:
-            if USE_GPU:
-                batch = [tensor.cuda() for tensor in batch]
-            else:
-                batch = [tensor for tensor in batch]
-            (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed) = batch
+            batch = [tensor for tensor in batch]
+            (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
+             obs_label, pred_label) = batch
 
             ade, fde, sim_op = [], [], []
             total_traj.append(pred_traj_gt.size(1))
@@ -31,10 +29,10 @@ def evaluate(loader, generator, num_samples):
             for _ in range(num_samples):
                 if TEST_METRIC:
                     pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
-                              TEST_METRIC, SPEED_TO_ADD)
+                              TEST_METRIC, SPEED_TO_ADD, obs_label, pred_label)
                 else:
                     pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed,
-                                pred_ped_speed, pred_traj_gt, TEST_METRIC, SPEED_TO_ADD)
+                                pred_ped_speed, pred_traj_gt, TEST_METRIC, SPEED_TO_ADD, obs_label, pred_label)
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
@@ -50,20 +48,12 @@ def evaluate(loader, generator, num_samples):
 
         ade = sum(ade_outer) / (sum(total_traj) * PRED_LEN)
         fde = sum(fde_outer) / (sum(total_traj))
-        simulated_traj_for_visualization = torch.cat(simulated_output, dim=1)
-        sequences = torch.cumsum(torch.stack(sequences, dim=0), dim=0)
+        #simulated_traj_for_visualization = torch.cat(simulated_output, dim=1)
+        #sequences = torch.cumsum(torch.stack(sequences, dim=0), dim=0)
 
-        if TEST_METRIC and VERIFY_OUTPUT_SPEED:
-            # The speed can be verified for different sequences and this method runs for n number of batches.
-            verify_speed(simulated_traj_for_visualization, sequences)
-
-        if ANIMATED_VISUALIZATION_CHECK:
-            # Trajectories at User-defined speed for Visualization
-            with open('SimulatedTraj.pkl', 'wb') as f:
-                pickle.dump(simulated_traj_for_visualization, f, pickle.HIGHEST_PROTOCOL)
-            # Sequence list file used for Visualization
-            with open('Sequences.pkl', 'wb') as f:
-                pickle.dump(sequences, f, pickle.HIGHEST_PROTOCOL)
+        #if TEST_METRIC and VERIFY_OUTPUT_SPEED:
+        #    # The speed can be verified for different sequences and this method runs for n number of batches.
+        #    verify_speed(simulated_traj_for_visualization, sequences)
         return ade, fde
 
 
@@ -71,11 +61,7 @@ def main():
     checkpoint = torch.load(CHECKPOINT_NAME)
     generator = TrajectoryGenerator()
     generator.load_state_dict(checkpoint['g_state'])
-    if USE_GPU:
-        generator.cuda()
-        generator.train()
-    else:
-        generator.train()
+    generator.train()
 
     dataset_name = get_dataset_name(TEST_DATASET_PATH)
     _, loader = data_loader(TEST_DATASET_PATH, TEST_METRIC)
