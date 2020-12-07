@@ -4,7 +4,7 @@ PRED_LEN = 12
 TRAIN_DATASET_PATH = 'datasets/eth/train'
 VAL_DATASET_PATH = 'datasets/eth/val'
 TEST_DATASET_PATH = 'datasets/eth/test'
-CHECKPOINT_NAME = 'Checkpoints/check_point.pt'
+CHECKPOINT_NAME = 'check_point.pt'
 
 # DATASET FLAGS FOR ANALYZING THE MAX SPEEDS.
 ETH = 1
@@ -47,7 +47,7 @@ POOLING_TYPE = True
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
-TEST_METRIC = 1  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
+TEST_METRIC = 0  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
 
