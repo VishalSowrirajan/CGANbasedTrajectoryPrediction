@@ -153,29 +153,25 @@ class SocialSpeedPoolingModule(nn.Module):
 
 
 def speed_control(pred_traj_first_speed, speed_to_add, seq_start_end, label, id=None):
-    """This method represents the CONTROL MODULE in the paper. Using this module, user can add
+    """This method acts as speed regulator. Using this method, user can add
     speed at one/more frames, stop the pedestrians and so on"""
-    simulated_traj = []
     for _, (start, end) in enumerate(seq_start_end):
         start = start.item()
         end = end.item()
 
-        if STOP_PED:
-            # To stop all pedestrians
-            speed_to_add = 0.1
+        if DIFFERENT_SPEED_FOR_ALL:
             for a, b in zip(range(start, end), label):
                 if torch.eq(b, 0.1):
-                    pred_traj_first_speed[a] = sigmoid(0.5 * AV_MAX_SPEED)
+                    pred_traj_first_speed[a] = sigmoid(AV_SPEED * AV_MAX_SPEED)
                 elif torch.eq(b, 0.2):
-                    pred_traj_first_speed[a] = sigmoid(0.5 * OTHER_MAX_SPEED)
+                    pred_traj_first_speed[a] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
                 elif torch.eq(b, 0.3):
-                    pred_traj_first_speed[a] = sigmoid(0.5 * AGENT_MAX_SPEED)
+                    pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
         elif CONSTANT_SPEED_FOR_ALL_PED:
             # To make all pedestrians travel at same and constant speed throughout
             for a in range(start, end):
-                pred_traj_first_speed[a] = sigmoid(4)
+                pred_traj_first_speed[a] = 0.7
 
-    #simulated_traj = torch.Tensor(simulated_traj).view(-1, 1)
     return pred_traj_first_speed.view(-1, 1)
 
 
@@ -260,7 +256,7 @@ class TrajectoryGenerator(nn.Module):
                 pred_test_traj = relative_to_abs(pred_test_traj_rel, obs_test_traj[-1])
                 speed_added = pred_ped_speed[:, start:end, :]
                 print(speed_added)
-                print(label, pred_test_traj)
+                print(label, obs_test_traj, pred_test_traj)
                 simulated_trajectories.append(pred_test_traj)
         return pred_traj_fake_rel
 
