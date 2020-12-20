@@ -4,7 +4,7 @@ PRED_LEN = 12
 TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/3.pt'
+CHECKPOINT_NAME = 'Checkpoints/1epochWithSigmoid.pt'
 
 # DATASET FLAGS FOR ANALYZING THE MAX SPEEDS.
 AV_MAX_SPEED = 2.0
@@ -26,13 +26,14 @@ H_DIM_DIS = 64
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
-NUM_EPOCHS = 10
+NUM_EPOCHS = 1
 CHECKPOINT_EVERY = 100
 MLP_DIM = 64
 EMBEDDING_DIM = 16
 BOTTLENECK_DIM = 32
 NOISE_DIM = (8, )
 DECODER_TIMESTEP_POOLING = False
+
 L2_LOSS_WEIGHT = 1
 SPEED_TO_ADD = 0
 
@@ -48,19 +49,15 @@ NORMALIZATION_FACTOR = 10
 
 # ADD_SPEED_EVERY_FRAME, STOP_PED, CONSTANT_SPEED_FOR_ALL_PED, ADD_SPEED_PARTICULAR_FRAME - Only one flag out of the 4 can be activated at once.
 
-DIFFERENT_SPEED_FOR_ALL = True  # Makes the speed value as 0
-AV_SPEED = 0.5
-AGENT_SPEED = 0.2
-OTHER_SPEED = 0.7
+DIFFERENT_SPEED_FOR_ALL = True
+AV_SPEED = 0.2
+AGENT_SPEED = 0.4
+OTHER_SPEED = 0.5
 
 CONSTANT_SPEED_FOR_ALL_PED = False  # CONSTANT_SPEED flag will be active only if CONSTANT_SPEED_FOR_ALL_PED is True
 CONSTANT_SPEED = 0.2
 
-ADD_SPEED_PARTICULAR_FRAME = False  # FRAMES_TO_ADD_SPEED flag will be active only if ADD_SPEED_PARTICULAR_FRAME is True
-FRAMES_TO_ADD_SPEED = []  # Provide a value between 0 to length of (predicted traj-1)
-
 ANIMATED_VISUALIZATION_CHECK = 1
-FRAMES_PER_SECOND = 0.1
 
 G_STEPS = 1
 D_STEPS = 2

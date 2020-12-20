@@ -34,7 +34,10 @@ class Encoder(nn.Module):
         self.spatial_embedding = nn.Linear(4, EMBEDDING_DIM)
 
     def init_hidden(self, batch):
-        c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim), torch.zeros(self.num_layers, batch, self.h_dim)
+        if USE_GPU:
+            c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim).cuda(), torch.zeros(self.num_layers, batch, self.h_dim).cuda()
+        else:
+            c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim), torch.zeros(self.num_layers, batch, self.h_dim)
         return c_s, r_s
 
     def forward(self, obs_traj, obs_ped_speed, label_info):
@@ -105,7 +108,7 @@ class Decoder(nn.Module):
             last_pos = curr_pos
 
         pred_traj_fake_rel = torch.stack(pred_traj_fake_rel, dim=0)
-        return pred_traj_fake_rel, state_tuple[0]
+        return pred_traj_fake_rel
 
 
 class SocialSpeedPoolingModule(nn.Module):
@@ -169,8 +172,13 @@ def speed_control(pred_traj_first_speed, speed_to_add, seq_start_end, label, id=
                     pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
         elif CONSTANT_SPEED_FOR_ALL_PED:
             # To make all pedestrians travel at same and constant speed throughout
-            for a in range(start, end):
-                pred_traj_first_speed[a] = 0.7
+            for a, b in zip(range(start, end), label):
+                if torch.eq(b, 0.1):
+                    pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AV_MAX_SPEED)
+                elif torch.eq(b, 0.2):
+                    pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * OTHER_MAX_SPEED)
+                elif torch.eq(b, 0.3):
+                    pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AGENT_MAX_SPEED)
 
     return pred_traj_first_speed.view(-1, 1)
 
@@ -202,7 +210,10 @@ class TrajectoryGenerator(nn.Module):
 
     def add_noise(self, _input, seq_start_end):
         noise_shape = (seq_start_end.size(0),) + self.noise_dim
-        z_decoder = torch.randn(*noise_shape)
+        if USE_GPU:
+            z_decoder = torch.randn(*noise_shape).cuda()
+        else:
+            z_decoder = torch.randn(*noise_shape)
         _list = []
         for idx, (start, end) in enumerate(seq_start_end):
             noise = z_decoder[idx].view(1, -1).repeat(end.item() - start.item(), 1)
@@ -228,21 +239,16 @@ class TrajectoryGenerator(nn.Module):
         noise_input = self.mlp_decoder_context(mlp_decoder_context_input)
 
         decoder_h = self.add_noise(noise_input, seq_start_end).unsqueeze(dim=0)
-        decoder_c = torch.zeros(self.num_layers, batch, self.h_dim)
+        if USE_GPU:
+            decoder_c = torch.zeros(self.num_layers, batch, self.h_dim).cuda()
+        else:
+            decoder_c = torch.zeros(self.num_layers, batch, self.h_dim)
 
         state_tuple = (decoder_h, decoder_c)
 
-        decoder_out = self.decoder(
-            obs_traj[-1],
-            obs_traj_rel[-1],
-            state_tuple,
-            seq_start_end,
-            speed_to_add,
-            pred_ped_speed,
-            train_or_test,
-            pred_label
-        )
-        pred_traj_fake_rel, final_decoder_h = decoder_out
+        decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, speed_to_add, pred_ped_speed,
+            train_or_test, pred_label)
+        pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
         if train_or_test == 1:

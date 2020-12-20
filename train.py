@@ -68,14 +68,7 @@ def main():
     }
     ade_list, fde_list, avg_speed_error, f_speed_error = [], [], [], []
 
-    # For iteration wise
-    ade_visualizer = SummaryWriter('runs/')
-    fde_visualizer = SummaryWriter('runs/')
-    epochade_visualizer = SummaryWriter('runs/')
-    epochfde_visualizer = SummaryWriter('runs/')
-
     while epoch < NUM_EPOCHS:
-        adetrainepoch, adevalepoch, fdetrainepoch, fdevalepoch = [], [], [], []
         gc.collect()
         d_steps_left, g_steps_left = D_STEPS, G_STEPS
         epoch += 1
@@ -114,30 +107,12 @@ def main():
                 avg_speed_error.append(metrics_val['msae'])
                 f_speed_error.append(metrics_val['fse'])
 
-                adetrainepoch.append(metrics_train['ade'])
-                adevalepoch.append(metrics_val['ade'])
-
-                fdetrainepoch.append(metrics_train['fde'])
-                fdevalepoch.append(metrics_val['fde'])
-
                 if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list) or metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
                     checkpoint['g_best_state'] = generator.state_dict()
                 if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list):
                     print('New low for avg_disp_error')
                 if metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
                     print('New low for final_disp_error')
-
-                ade_visualizer.add_scalars(f'adeloss', {
-                    'trainadeloss': metrics_train.get('ade'),
-                    'valadeloss': metrics_val.get('ade'),
-                }, t/CHECKPOINT_EVERY)
-                ade_visualizer.close()
-
-                fde_visualizer.add_scalars(f'fdeloss', {
-                    'trainfdeloss': metrics_train.get('fde'),
-                    'valfdeloss': metrics_val.get('fde'),
-                }, t/CHECKPOINT_EVERY)
-                fde_visualizer.close()
 
                 checkpoint['g_state'] = generator.state_dict()
                 checkpoint['g_optim_state'] = optimizer_g.state_dict()
@@ -152,22 +127,13 @@ def main():
             if t >= NUM_ITERATIONS:
                 break
 
-        epochade_visualizer.add_scalars(f'epochadeloss', {
-            'epochtrainadeloss': sum(adetrainepoch)/len(adetrainepoch),
-            'epochvaladeloss': sum(adevalepoch) / len(adevalepoch),
-        }, epoch)
-        epochade_visualizer.close()
-
-        epochfde_visualizer.add_scalars(f'epochfdeloss', {
-            'epochtrainfdeloss': sum(fdetrainepoch) / len(fdetrainepoch),
-            'epochvalfdeloss': sum(fdevalepoch) / len(fdevalepoch),
-        }, epoch)
-        epochfde_visualizer.close()
-
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
     """This step is similar to Social GAN Code"""
-    batch = [tensor for tensor in batch]
+    if USE_GPU:
+        batch = [tensor.cuda() for tensor in batch]
+    else:
+        batch = [tensor for tensor in batch]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label) = batch
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
@@ -202,7 +168,10 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
 
 def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
     """This step is similar to Social GAN Code"""
-    batch = [tensor for tensor in batch]
+    if USE_GPU:
+        batch = [tensor.cuda() for tensor in batch]
+    else:
+        batch = [tensor for tensor in batch]
     (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
      obs_label, pred_label) = batch
 
@@ -265,7 +234,10 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
     generator.eval()
     with torch.no_grad():
         for batch in loader:
-            batch = [tensor for tensor in batch]
+            if USE_GPU:
+                batch = [tensor.cuda() for tensor in batch]
+            else:
+                batch = [tensor for tensor in batch]
             (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
              pred_ped_speed, obs_label, pred_label) = batch
 
@@ -341,8 +313,7 @@ def fake_speed(fake_traj):
     sigmoid_speed = nn.Sigmoid()
     for a, b in zip(fake_traj[:, :], fake_traj[1:, :]):
         dist = torch.pairwise_distance(a, b)
-        speed = dist / NORMALIZATION_FACTOR
-        speed = sigmoid_speed(speed)
+        speed = dist
         output_speed.append(speed.view(1, -1))
     output_fake_speed = torch.cat(output_speed, dim=0).unsqueeze(dim=2).permute(1, 0, 2)
     return output_fake_speed
