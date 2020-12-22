@@ -47,7 +47,10 @@ def main():
         print('Here is the generator:')
         print(generator)
 
-        discriminator = TrajectoryDiscriminator()
+        if MULTI_CONDITIONAL_MODEL:
+            discriminator = TrajectoryDiscriminator(h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+        else:
+            discriminator = TrajectoryDiscriminator(h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
 
         discriminator.apply(init_weights)
         discriminator.type(torch.FloatTensor).train()
@@ -139,12 +142,18 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
         batch = [tensor.cuda() for tensor in batch]
     else:
         batch = [tensor for tensor in batch]
-    (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label) = batch
+    if MULTI_CONDITIONAL_MODEL:
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label) = batch
+        generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=obs_label, pred_label=pred_label)
+    else:
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed) = batch
+        generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=None, pred_label=None)
+
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
 
-    generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                 pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label, pred_label)
 
     pred_traj_fake_rel = generator_out
     pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
