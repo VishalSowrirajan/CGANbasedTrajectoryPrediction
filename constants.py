@@ -1,10 +1,14 @@
 # DATASET OPTIONS
 OBS_LEN = 8
 PRED_LEN = 12
-TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
-VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
+TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train111'
+VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val111'
 TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
 CHECKPOINT_NAME = 'Checkpoints/1epochWithSigmoid.pt'
+
+# NUMBER OF CONDITION FLAG - activate one of the following flags
+SINGLE_CONDITIONAL_MODEL = False
+MULTI_CONDITIONAL_MODEL = True
 
 # DATASET FLAGS FOR ANALYZING THE MAX SPEEDS.
 AV_MAX_SPEED = 2.0
@@ -18,9 +22,21 @@ BATCH_NORM = False
 ACTIVATION_RELU = 'relu'
 ACTIVATION_LEAKYRELU = 'leakyrelu'
 
+# Time between consecutive frames
+FRAMES_PER_SECOND_SINGLE_CONDITION = 0.4
+FRAMES_PER_SECOND_MULTI_CONDITION = 0.1
+NORMALIZATION_FACTOR = 10
+
+
 # ENCODER DECODER HIDDEN DIMENSION OPTIONS
-H_DIM = 32
-H_DIM_DIS = 64
+H_DIM_GENERATOR_MULTI_CONDITION = 32
+H_DIM_DISCRIMINATOR_MULTI_CONDITION = 64
+
+H_DIM_GENERATOR_SINGLE_CONDITION = 16
+H_DIM_DISCRIMINATOR_SINGLE_CONDITION = 32
+
+MLP_INPUT_DIM_MULTI_CONDITION = 4
+MLP_INPUT_DIM_SINGLE_CONDITION = 3
 
 # HYPER PARAMETERS OPTIONS
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
@@ -45,7 +61,6 @@ USE_GPU = 0
 TEST_METRIC = 1  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
-NORMALIZATION_FACTOR = 10
 
 # ADD_SPEED_EVERY_FRAME, STOP_PED, CONSTANT_SPEED_FOR_ALL_PED, ADD_SPEED_PARTICULAR_FRAME - Only one flag out of the 4 can be activated at once.
 

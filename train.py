@@ -35,7 +35,12 @@ def main():
     if NUM_EPOCHS:
         NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS)
 
-        generator = TrajectoryGenerator()
+        if MULTI_CONDITIONAL_MODEL:
+            generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
+                                            h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
+        else:
+            generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
+                                            h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
 
         generator.apply(init_weights)
         generator.type(torch.FloatTensor).train()

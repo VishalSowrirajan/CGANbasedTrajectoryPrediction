@@ -21,17 +21,18 @@ def make_mlp(dim_list, activation='leakyrelu', batch_norm=True, dropout=0):
 
 
 class Encoder(nn.Module):
-    def __init__(self, h_dim=64):
+    def __init__(self, h_dim, mlp_input_dim):
         super(Encoder, self).__init__()
 
         self.mlp_dim = MLP_DIM
         self.h_dim = h_dim
         self.embedding_dim = EMBEDDING_DIM
         self.num_layers = NUM_LAYERS
+        self.mlp_input_dim = mlp_input_dim
 
         self.encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
 
-        self.spatial_embedding = nn.Linear(4, EMBEDDING_DIM)
+        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
 
     def init_hidden(self, batch):
         if USE_GPU:
@@ -42,8 +43,11 @@ class Encoder(nn.Module):
 
     def forward(self, obs_traj, obs_ped_speed, label_info):
         batch = obs_traj.size(1)
-        embedding_input = torch.cat([obs_traj, obs_ped_speed, label_info], dim=2)
-        traj_speed_embedding = self.spatial_embedding(embedding_input.contiguous().view(-1, 4))
+        if MULTI_CONDITIONAL_MODEL:
+            embedding_input = torch.cat([obs_traj, obs_ped_speed, label_info], dim=2)
+        else:
+            embedding_input = torch.cat([obs_traj, obs_ped_speed], dim=2)
+        traj_speed_embedding = self.spatial_embedding(embedding_input.contiguous().view(-1, self.mlp_input_dim))
         obs_traj_embedding = traj_speed_embedding.view(-1, batch, self.embedding_dim)
         state_tuple = self.init_hidden(batch)
         output, state = self.encoder(obs_traj_embedding, state_tuple)
@@ -56,30 +60,37 @@ def sigmoid(x):
 
 
 class Decoder(nn.Module):
-    def __init__(self):
+    def __init__(self, h_dim, mlp_input_dim):
         super(Decoder, self).__init__()
 
         self.mlp_dim = MLP_DIM
-        self.h_dim = H_DIM
+        self.h_dim = h_dim
         self.embedding_dim = EMBEDDING_DIM
+        self.mlp_input_dim = mlp_input_dim
 
-        self.decoder = nn.LSTM(EMBEDDING_DIM, H_DIM, NUM_LAYERS, dropout=DROPOUT)
+        self.decoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
 
-        mlp_dims = [H_DIM + BOTTLENECK_DIM, MLP_DIM, H_DIM]
+        mlp_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim]
         self.mlp = make_mlp(mlp_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
-        self.spatial_embedding = nn.Linear(4, EMBEDDING_DIM)
-        self.hidden2pos = nn.Linear(H_DIM, 2)
+        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
+        self.hidden2pos = nn.Linear(h_dim, 2)
         self.pool_net = SocialSpeedPoolingModule()
 
     def forward(self, last_pos, last_pos_rel, state_tuple, seq_start_end, speed_to_add, pred_ped_speed, train_or_test, pred_label):
         batch = last_pos.size(0)
         pred_traj_fake_rel = []
         if train_or_test == 0:
-            last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :], pred_label[0, :, :]], dim=1)
+            if MULTI_CONDITIONAL_MODEL:
+                last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :], pred_label[0, :, :]], dim=1)
+            else:
+                last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :]], dim=1)
         else:
             next_speed = speed_control(pred_ped_speed[0, :, :], 0, seq_start_end, pred_label[0, :, :])
-            last_pos_speed = torch.cat([last_pos_rel, next_speed, pred_label[0, :, :]], dim=1)
+            if MULTI_CONDITIONAL_MODEL:
+                last_pos_speed = torch.cat([last_pos_rel, next_speed, pred_label[0, :, :]], dim=1)
+            else:
+                last_pos_speed = torch.cat([last_pos_rel, next_speed], dim=1)
         decoder_input = self.spatial_embedding(last_pos_speed)
         decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
@@ -184,26 +195,30 @@ def speed_control(pred_traj_first_speed, speed_to_add, seq_start_end, label, id=
 
 
 class TrajectoryGenerator(nn.Module):
-    def __init__(self):
+    def __init__(self, mlp_dim, h_dim):
         super(TrajectoryGenerator, self).__init__()
 
         self.mlp_dim = MLP_DIM
-        self.h_dim = H_DIM
+        self.h_dim = h_dim
+
+        self.mlp_input_dim = mlp_dim
+        self.h_dim = h_dim
+
         self.embedding_dim = EMBEDDING_DIM
         self.noise_dim = NOISE_DIM
         self.num_layers = NUM_LAYERS
         self.bottleneck_dim = BOTTLENECK_DIM
 
-        self.encoder = Encoder(h_dim=H_DIM)
-        self.decoder = Decoder()
+        self.encoder = Encoder(h_dim=h_dim, mlp_input_dim=mlp_dim)
+        self.decoder = Decoder(h_dim = h_dim, mlp_input_dim=mlp_dim)
         self.social_speed_pooling = SocialSpeedPoolingModule()
 
         self.noise_first_dim = NOISE_DIM[0]
 
         if POOLING_TYPE:
-            mlp_decoder_context_dims = [H_DIM + BOTTLENECK_DIM, MLP_DIM, H_DIM - self.noise_first_dim]
+            mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
         else:
-            mlp_decoder_context_dims = [H_DIM, MLP_DIM, H_DIM - self.noise_first_dim]
+            mlp_decoder_context_dims = [h_dim, MLP_DIM, h_dim - self.noise_first_dim]
 
         self.mlp_decoder_context = make_mlp(mlp_decoder_context_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM,
                                             dropout=DROPOUT)
