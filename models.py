@@ -75,7 +75,7 @@ class Decoder(nn.Module):
 
         self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
         self.hidden2pos = nn.Linear(h_dim, 2)
-        self.pool_net = SocialSpeedPoolingModule()
+        #self.pool_net = SocialSpeedPoolingModule()
 
     def forward(self, last_pos, last_pos_rel, state_tuple, seq_start_end, speed_to_add, pred_ped_speed, train_or_test, label=None):
         batch = last_pos.size(0)
@@ -303,10 +303,10 @@ class TrajectoryGenerator(nn.Module):
 
 
 class TrajectoryDiscriminator(nn.Module):
-    def __init__(self, h_dim):
+    def __init__(self, h_dim, mlp_dim):
         super(TrajectoryDiscriminator, self).__init__()
 
-        self.encoder = Encoder(h_dim=h_dim)
+        self.encoder = Encoder(h_dim=h_dim, mlp_input_dim=mlp_dim)
 
         real_classifier_dims = [h_dim, MLP_DIM, 1]
         self.real_classifier = make_mlp(real_classifier_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)

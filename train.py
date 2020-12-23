@@ -48,9 +48,9 @@ def main():
         print(generator)
 
         if MULTI_CONDITIONAL_MODEL:
-            discriminator = TrajectoryDiscriminator(h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+            discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
         else:
-            discriminator = TrajectoryDiscriminator(h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+            discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
 
         discriminator.apply(init_weights)
         discriminator.type(torch.FloatTensor).train()
