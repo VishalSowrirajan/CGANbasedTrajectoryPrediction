@@ -24,6 +24,8 @@ def init_weights(m):
 
 def main():
     train_metric = 0
+    if MULTI_CONDITIONAL_MODEL and SINGLE_CONDITIONAL_MODEL:
+        raise ValueError("Please select either Multi conditional model or single conditional model flag in constants.py")
     print("Process Started")
     print("Initializing train dataset")
     train_dset, train_loader = data_loader(TRAIN_DATASET_PATH, train_metric)
@@ -196,8 +198,12 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
     loss_mask = loss_mask[:, OBS_LEN:]
 
     for _ in range(BEST_K):
-        generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
-                                     TRAIN_METRIC, SPEED_TO_ADD, obs_label, pred_label)
+        if MULTI_CONDITIONAL_MODEL:
+            generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=obs_label, pred_label=pred_label)
+        else:
+            generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=None, pred_label=None)
 
         pred_traj_fake_rel = generator_out
         pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
@@ -255,8 +261,13 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
             (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
              pred_ped_speed, obs_label, pred_label) = batch
 
-            pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                              pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label, pred_label)
+            if MULTI_CONDITIONAL_MODEL:
+                pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=obs_label, pred_label=pred_label)
+            else:
+                pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=None, pred_label=None)
+
             pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
             loss_mask = loss_mask[:, OBS_LEN:]
 

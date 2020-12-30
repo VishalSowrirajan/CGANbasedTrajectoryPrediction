@@ -75,9 +75,8 @@ class Decoder(nn.Module):
 
         self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
         self.hidden2pos = nn.Linear(h_dim, 2)
-        #self.pool_net = SocialSpeedPoolingModule()
 
-    def forward(self, last_pos, last_pos_rel, state_tuple, seq_start_end, speed_to_add, pred_ped_speed, train_or_test, label=None):
+    def forward(self, last_pos, last_pos_rel, state_tuple, seq_start_end, pred_ped_speed, train_or_test, label=None):
         batch = last_pos.size(0)
         pred_traj_fake_rel = []
         if train_or_test == 0:
@@ -86,7 +85,7 @@ class Decoder(nn.Module):
             else:
                 last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :]], dim=1)
         else:
-            next_speed = speed_control(pred_ped_speed[0, :, :], 0, seq_start_end, label=label[0, :, :])
+            next_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=label[0, :, :])
             if MULTI_CONDITIONAL_MODEL:
                 last_pos_speed = torch.cat([last_pos_rel, next_speed, label[0, :, :]], dim=1)
             else:
@@ -103,14 +102,14 @@ class Decoder(nn.Module):
                     speed = pred_ped_speed[id + 1, :, :]
                     curr_label = label[id+1, :, :]
                 else:
-                    speed = speed_control(pred_ped_speed[id + 1, :, :], 0, seq_start_end, label=label[id+1, :, :])
+                    speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end, label=label[id+1, :, :])
                     curr_label = label[id + 1, :, :]
             decoder_input = torch.cat([rel_pos, speed, curr_label], dim=1)
             decoder_input = self.spatial_embedding(decoder_input)
             decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
             if DECODER_TIMESTEP_POOLING:
-                pool_h = self.pool_net(state_tuple[0], seq_start_end, train_or_test, speed_to_add, curr_pos, speed, label[id, :, :])
+                pool_h = self.pool_net(state_tuple[0], seq_start_end, train_or_test, curr_pos, speed, label[id, :, :])
                 decoder_h = torch.cat([state_tuple[0].view(-1, self.h_dim), pool_h], dim=1)
                 decoder_h = self.mlp(decoder_h)
                 state_tuple = (decoder_h.unsqueeze(dim=0), state_tuple[1])
@@ -122,11 +121,11 @@ class Decoder(nn.Module):
         return pred_traj_fake_rel
 
 
-class SocialSpeedPoolingModule(nn.Module):
+class ConditionalPoolingModule(nn.Module):
     """The pooling module takes the speed of the pedestrians each other approaching into account"""
 
     def __init__(self, h_dim, mlp_input_dim):
-        super(SocialSpeedPoolingModule, self).__init__()
+        super(ConditionalPoolingModule, self).__init__()
         self.mlp_dim = MLP_DIM
         self.h_dim = h_dim
         self.bottleneck_dim = BOTTLENECK_DIM
@@ -139,10 +138,10 @@ class SocialSpeedPoolingModule(nn.Module):
         self.pos_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
         self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_LEAKYRELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
-    def forward(self, h_states, seq_start_end, train_or_test, speed_to_add, last_pos, speed, label=None):
+    def forward(self, h_states, seq_start_end, train_or_test, last_pos, speed, label=None):
         pool_h = []
         if train_or_test == 1:
-            speed = speed_control(speed, SPEED_TO_ADD, seq_start_end, label=label)
+            speed = speed_control(speed, seq_start_end, label=label)
         for _, (start, end) in enumerate(seq_start_end):
             start = start.item()
             end = end.item()
@@ -173,30 +172,30 @@ class SocialSpeedPoolingModule(nn.Module):
         return pool_h
 
 
-def speed_control(pred_traj_first_speed, speed_to_add, seq_start_end, label=None, id=None):
+def speed_control(pred_traj_first_speed, seq_start_end, label=None):
     """This method acts as speed regulator. Using this method, user can add
     speed at one/more frames, stop the pedestrians and so on"""
     for _, (start, end) in enumerate(seq_start_end):
         start = start.item()
         end = end.item()
-
-        if DIFFERENT_SPEED_FOR_ALL:
-            for a, b in zip(range(start, end), label):
-                if torch.eq(b, 0.1):
-                    pred_traj_first_speed[a] = sigmoid(AV_SPEED * AV_MAX_SPEED)
-                elif torch.eq(b, 0.2):
-                    pred_traj_first_speed[a] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
-                elif torch.eq(b, 0.3):
-                    pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
-        elif CONSTANT_SPEED_FOR_ALL_PED:
-            # To make all pedestrians travel at same and constant speed throughout
-            for a, b in zip(range(start, end), label):
-                if torch.eq(b, 0.1):
-                    pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AV_MAX_SPEED)
-                elif torch.eq(b, 0.2):
-                    pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * OTHER_MAX_SPEED)
-                elif torch.eq(b, 0.3):
-                    pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AGENT_MAX_SPEED)
+        if MULTI_CONDITIONAL_MODEL:
+            if DIFFERENT_SPEED_FOR_ALL:
+                for a, b in zip(range(start, end), label):
+                    if torch.eq(b, 0.1):
+                        pred_traj_first_speed[a] = sigmoid(AV_SPEED * AV_MAX_SPEED)
+                    elif torch.eq(b, 0.2):
+                        pred_traj_first_speed[a] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
+                    elif torch.eq(b, 0.3):
+                        pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
+            elif CONSTANT_SPEED_FOR_ALL_PED:
+                # To make all pedestrians travel at same and constant speed throughout
+                for a, b in zip(range(start, end), label):
+                    if torch.eq(b, 0.1):
+                        pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AV_MAX_SPEED)
+                    elif torch.eq(b, 0.2):
+                        pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * OTHER_MAX_SPEED)
+                    elif torch.eq(b, 0.3):
+                        pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AGENT_MAX_SPEED)
 
     return pred_traj_first_speed.view(-1, 1)
 
@@ -218,7 +217,7 @@ class TrajectoryGenerator(nn.Module):
 
         self.encoder = Encoder(h_dim=h_dim, mlp_input_dim=mlp_dim)
         self.decoder = Decoder(h_dim = h_dim, mlp_input_dim=mlp_dim)
-        self.social_speed_pooling = SocialSpeedPoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
+        self.conditionalPoolingModule = ConditionalPoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
 
         self.noise_first_dim = NOISE_DIM[0]
 
@@ -253,16 +252,16 @@ class TrajectoryGenerator(nn.Module):
         if POOLING_TYPE:
             if train_or_test == 1:
                 if MULTI_CONDITIONAL_MODEL:
-                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], SPEED_TO_ADD, seq_start_end, label=pred_label[0, :, :])
+                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=pred_label[0, :, :])
                 else:
-                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], SPEED_TO_ADD, seq_start_end, label=None)
+                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=None)
                 next_speed = simulated_ped_speed
             else:
                 next_speed = pred_ped_speed[0, :, :]
             if MULTI_CONDITIONAL_MODEL:
-                sspm = self.social_speed_pooling(final_encoder_h, seq_start_end, train_or_test, speed_to_add, obs_traj[-1, :, :], next_speed, label=pred_label[0, :, :])
+                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], next_speed, label=pred_label[0, :, :])
             else:
-                sspm = self.social_speed_pooling(final_encoder_h, seq_start_end, train_or_test, speed_to_add, obs_traj[-1, :, :], next_speed, label=None)
+                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], next_speed, label=None)
             mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), sspm], dim=1)
         else:
             mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
@@ -278,10 +277,10 @@ class TrajectoryGenerator(nn.Module):
         state_tuple = (decoder_h, decoder_c)
 
         if MULTI_CONDITIONAL_MODEL:
-            decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, speed_to_add, pred_ped_speed,
+            decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, pred_ped_speed,
             train_or_test, label=pred_label)
         else:
-            decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, speed_to_add, pred_ped_speed,
+            decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, pred_ped_speed,
             train_or_test)
         pred_traj_fake_rel = decoder_out
 
