@@ -100,11 +100,16 @@ class Decoder(nn.Module):
             if id + 1 != PRED_LEN:
                 if train_or_test == 0:
                     speed = pred_ped_speed[id + 1, :, :]
-                    curr_label = label[id+1, :, :]
+                    if MULTI_CONDITIONAL_MODEL:
+                        curr_label = label[id+1, :, :]
                 else:
                     speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end, label=label[id+1, :, :])
-                    curr_label = label[id + 1, :, :]
-            decoder_input = torch.cat([rel_pos, speed, curr_label], dim=1)
+                    if MULTI_CONDITIONAL_MODEL:
+                        curr_label = label[id + 1, :, :]
+            if MULTI_CONDITIONAL_MODEL:
+                decoder_input = torch.cat([rel_pos, speed, curr_label], dim=1)
+            else:
+                decoder_input = torch.cat([rel_pos, speed], dim=1)
             decoder_input = self.spatial_embedding(decoder_input)
             decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
@@ -161,7 +166,6 @@ class ConditionalPoolingModule(nn.Module):
             else:
                 social_features_with_speed = torch.cat([social_features, curr_end_pos_1[:, 2].view(-1, 1)], dim=1)
 
-            # POSITION SPEED Pooling
             position_feature_embedding = self.pos_embedding(social_features_with_speed.contiguous().view(-1, self.mlp_input_dim))
             pos_mlp_input = torch.cat(
                 [repeat_hstate.view(-1, self.h_dim), position_feature_embedding.view(-1, self.embedding_dim)], dim=1)
