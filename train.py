@@ -34,30 +34,32 @@ def main():
 
     iterations_per_epoch = len(train_dset) / BATCH / D_STEPS
     print(iterations_per_epoch)
-    if NUM_EPOCHS:
-        NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS)
+    if MULTI_CONDITIONAL_MODEL:
+        NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS_MULTI_CONDITION)
+    if SINGLE_CONDITIONAL_MODEL:
+        NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS_SINGLE_CONDITION)
 
-        if MULTI_CONDITIONAL_MODEL:
-            generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
-                                            h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
-        else:
-            generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
-                                            h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+    if MULTI_CONDITIONAL_MODEL:
+        generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
+                                        h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
+    else:
+        generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
+                                        h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
 
-        generator.apply(init_weights)
-        generator.type(torch.FloatTensor).train()
-        print('Here is the generator:')
-        print(generator)
+    generator.apply(init_weights)
+    generator.type(torch.FloatTensor).train()
+    print('Here is the generator:')
+    print(generator)
 
-        if MULTI_CONDITIONAL_MODEL:
-            discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
-        else:
-            discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+    if MULTI_CONDITIONAL_MODEL:
+        discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+    else:
+        discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
 
-        discriminator.apply(init_weights)
-        discriminator.type(torch.FloatTensor).train()
-        print('Here is the discriminator:')
-        print(discriminator)
+    discriminator.apply(init_weights)
+    discriminator.type(torch.FloatTensor).train()
+    print('Here is the discriminator:')
+    print(discriminator)
 
     g_loss_fn = gan_g_loss
     d_loss_fn = gan_d_loss
@@ -78,7 +80,11 @@ def main():
     }
     ade_list, fde_list, avg_speed_error, f_speed_error = [], [], [], []
 
-    while epoch < NUM_EPOCHS:
+    if MULTI_CONDITIONAL_MODEL:
+        required_epoch = NUM_EPOCHS_MULTI_CONDITION
+    else:
+        required_epoch = NUM_EPOCHS_SINGLE_CONDITION
+    while epoch < required_epoch:
         gc.collect()
         d_steps_left, g_steps_left = D_STEPS, G_STEPS
         epoch += 1
@@ -147,15 +153,14 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
     if MULTI_CONDITIONAL_MODEL:
         (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label) = batch
         generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=obs_label, pred_label=pred_label)
+                                  pred_traj_gt, TRAIN_METRIC, obs_label=obs_label, pred_label=pred_label)
     else:
         (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed) = batch
         generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=None, pred_label=None)
+                                  pred_traj_gt, TRAIN_METRIC, obs_label=None, pred_label=None)
 
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
-
 
     pred_traj_fake_rel = generator_out
     pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
@@ -165,10 +170,13 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
     traj_fake = torch.cat([obs_traj, pred_traj_fake], dim=0)
     traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel], dim=0)
     ped_speed = torch.cat([obs_ped_speed, pred_ped_speed], dim=0)
-    label_info = torch.cat([obs_label, pred_label], dim=0)
-
-    scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label_info, seq_start_end)
-    scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label_info, seq_start_end)
+    if MULTI_CONDITIONAL_MODEL:
+        label_info = torch.cat([obs_label, pred_label], dim=0)
+        scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label=label_info)
+        scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label=label_info)
+    else:
+        scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label=None)
+        scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label=None)
 
     data_loss = d_loss_fn(scores_real, scores_fake)
     losses['D_data_loss'] = data_loss.item()
@@ -200,10 +208,10 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
     for _ in range(BEST_K):
         if MULTI_CONDITIONAL_MODEL:
             generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=obs_label, pred_label=pred_label)
+                                  pred_traj_gt, TRAIN_METRIC, obs_label=obs_label, pred_label=pred_label)
         else:
             generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=None, pred_label=None)
+                                      pred_traj_gt, TRAIN_METRIC, obs_label=None, pred_label=None)
 
         pred_traj_fake_rel = generator_out
         pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
@@ -228,9 +236,11 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
     traj_fake = torch.cat([obs_traj, pred_traj_fake], dim=0)
     traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel], dim=0)
     ped_speed = torch.cat([obs_ped_speed, pred_ped_speed], dim=0)
-    label_info = torch.cat([obs_label, pred_label], dim=0)
-
-    scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label_info, seq_start_end)
+    if MULTI_CONDITIONAL_MODEL:
+        label_info = torch.cat([obs_label, pred_label], dim=0)
+        scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label=label_info)
+    else:
+        scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label=None)
     discriminator_loss = g_loss_fn(scores_fake)
 
     loss += discriminator_loss
@@ -263,10 +273,10 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
 
             if MULTI_CONDITIONAL_MODEL:
                 pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=obs_label, pred_label=pred_label)
+                                  pred_traj_gt, TRAIN_METRIC, obs_label=obs_label, pred_label=pred_label)
             else:
                 pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, TRAIN_METRIC, SPEED_TO_ADD, obs_label=None, pred_label=None)
+                                      pred_traj_gt, TRAIN_METRIC, obs_label=None, pred_label=None)
 
             pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
             loss_mask = loss_mask[:, OBS_LEN:]
@@ -288,10 +298,13 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
             traj_fake = torch.cat([obs_traj, pred_traj_fake], dim=0)
             traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel], dim=0)
             ped_speed = torch.cat([obs_ped_speed, pred_ped_speed], dim=0)
-            label_info = torch.cat([obs_label, pred_label], dim=0)
-
-            scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label_info, seq_start_end)
-            scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label_info, seq_start_end)
+            if MULTI_CONDITIONAL_MODEL:
+                label_info = torch.cat([obs_label, pred_label], dim=0)
+                scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label=label_info)
+                scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label=label_info)
+            else:
+                scores_fake = discriminator(traj_fake, traj_fake_rel, ped_speed, label=None)
+                scores_real = discriminator(traj_real, traj_real_rel, ped_speed, label=None)
 
             d_loss = d_loss_fn(scores_real, scores_fake)
             d_losses.append(d_loss.item())

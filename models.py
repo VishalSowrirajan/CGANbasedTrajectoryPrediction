@@ -246,8 +246,7 @@ class TrajectoryGenerator(nn.Module):
         decoder_h = torch.cat(_list, dim=0)
         return decoder_h
 
-    def forward(self, obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj, train_or_test,
-                speed_to_add, obs_label=None, pred_label=None, user_noise=None):
+    def forward(self, obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj, train_or_test, obs_label=None, pred_label=None, user_noise=None):
         batch = obs_traj_rel.size(1)
         if MULTI_CONDITIONAL_MODEL:
             final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=obs_label)
@@ -314,7 +313,10 @@ class TrajectoryDiscriminator(nn.Module):
         real_classifier_dims = [h_dim, MLP_DIM, 1]
         self.real_classifier = make_mlp(real_classifier_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
-    def forward(self, traj, traj_rel, ped_speed, label_info, seq_start_end=None):
-        final_h = self.encoder(traj_rel, ped_speed, label_info)  # final layer of the encoder is returned
+    def forward(self, traj, traj_rel, ped_speed, label=None):
+        if MULTI_CONDITIONAL_MODEL:
+            final_h = self.encoder(traj_rel, ped_speed, label=label)  # final layer of the encoder is returned
+        else:
+            final_h = self.encoder(traj_rel, ped_speed, label=None)  # final layer of the encoder is returned
         scores = self.real_classifier(final_h.squeeze())  # mlp - 64 --> 1024 --> 1
         return scores

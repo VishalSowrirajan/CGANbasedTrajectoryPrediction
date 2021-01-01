@@ -35,12 +35,20 @@ def evaluate(loader, generator, num_samples):
             labels.append(pred_label[0, :, :])
 
             for _ in range(num_samples):
-                if TEST_METRIC:
-                    pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
-                              TEST_METRIC, SPEED_TO_ADD, obs_label, pred_label)
+                if MULTI_CONDITIONAL_MODEL:
+                    if TEST_METRIC:
+                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
+                                  TEST_METRIC, obs_label=obs_label, pred_label=pred_label)
+                    else:
+                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed,
+                                    pred_ped_speed, pred_traj_gt, TEST_METRIC, obs_label=obs_label, pred_label=pred_label)
                 else:
-                    pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed,
-                                pred_ped_speed, pred_traj_gt, TEST_METRIC, SPEED_TO_ADD, obs_label, pred_label)
+                    if TEST_METRIC:
+                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
+                                  TEST_METRIC, obs_label=None, pred_label=None)
+                    else:
+                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed,
+                                    pred_ped_speed, pred_traj_gt, TEST_METRIC, obs_label=None, pred_label=None)
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
@@ -88,8 +96,15 @@ def evaluate(loader, generator, num_samples):
 
 def main():
     checkpoint = torch.load(CHECKPOINT_NAME)
-    generator = TrajectoryGenerator()
+    if MULTI_CONDITIONAL_MODEL:
+        generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
+                                        h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
+    else:
+        generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
+                                        h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
     generator.load_state_dict(checkpoint['g_state'])
+    if USE_GPU:
+        generator.cuda()
     generator.train()
 
     _, loader = data_loader(TEST_DATASET_PATH, TEST_METRIC)

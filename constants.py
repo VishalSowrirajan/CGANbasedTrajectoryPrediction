@@ -1,10 +1,10 @@
 # DATASET OPTIONS
 OBS_LEN = 8
 PRED_LEN = 12
-TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train111'
-VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val111'
+TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
+VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/1epochWithSigmoid.pt'
+CHECKPOINT_NAME = 'Checkpoints/epochs5_batch128_withsigmoid.pt'
 
 # NUMBER OF CONDITION FLAG - activate one of the following flags
 SINGLE_CONDITIONAL_MODEL = False
@@ -17,7 +17,7 @@ AGENT_MAX_SPEED = 3.2
 
 # PYTORCH DATA LOADER OPTIONS
 NUM_WORKERS = 4
-BATCH = 32
+BATCH = 128
 BATCH_NORM = False
 ACTIVATION_RELU = 'relu'
 ACTIVATION_LEAKYRELU = 'leakyrelu'
@@ -42,7 +42,8 @@ MLP_INPUT_DIM_SINGLE_CONDITION = 3
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
-NUM_EPOCHS = 1
+NUM_EPOCHS_MULTI_CONDITION = 5
+NUM_EPOCHS_SINGLE_CONDITION = 200
 CHECKPOINT_EVERY = 100
 MLP_DIM = 64
 EMBEDDING_DIM = 16
