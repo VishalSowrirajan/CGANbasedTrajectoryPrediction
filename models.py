@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from constants import *
 import math
-from utils import relative_to_abs
+from utils import relative_to_abs, get_dataset_name
 
 
 def make_mlp(dim_list, activation='leakyrelu', batch_norm=True, dropout=0):
@@ -183,7 +183,7 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
         start = start.item()
         end = end.item()
         if MULTI_CONDITIONAL_MODEL:
-            if DIFFERENT_SPEED_FOR_ALL:
+            if DIFFERENT_SPEED_MULTI_CONDITION:
                 for a, b in zip(range(start, end), label):
                     if torch.eq(b, 0.1):
                         pred_traj_first_speed[a] = sigmoid(AV_SPEED * AV_MAX_SPEED)
@@ -191,15 +191,37 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
                         pred_traj_first_speed[a] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
                     elif torch.eq(b, 0.3):
                         pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
-            elif CONSTANT_SPEED_FOR_ALL_PED:
+            elif CONSTANT_SPEED_MULTI_CONDITION:
                 # To make all pedestrians travel at same and constant speed throughout
                 for a, b in zip(range(start, end), label):
                     if torch.eq(b, 0.1):
-                        pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AV_MAX_SPEED)
+                        pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * AV_MAX_SPEED)
                     elif torch.eq(b, 0.2):
-                        pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * OTHER_MAX_SPEED)
+                        pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * OTHER_MAX_SPEED)
                     elif torch.eq(b, 0.3):
-                        pred_traj_first_speed[a] = sigmoid(CONSTANT_SPEED * AGENT_MAX_SPEED)
+                        pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * AGENT_MAX_SPEED)
+        elif SINGLE_CONDITIONAL_MODEL:
+            if CONSTANT_SPEED_SINGLE_CONDITION:
+                dataset_name = get_dataset_name(TEST_DATASET_PATH)
+                if dataset_name == 'eth':
+                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'hotel':
+                    speed_to_simulate = HOTEL_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'univ':
+                    speed_to_simulate = ZARA2_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'zara1':
+                    speed_to_simulate = UNIV_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'zara2':
+                    speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
+
+                # To add an additional speed for each pedestrain and every frame
+                for a in range(start, end):
+                    pred_traj_first_speed[a] = sigmoid(speed_to_simulate)
+
+            elif STOP_PED_SINGLE_CONDITION:
+                # To stop all pedestrians
+                for a in range(start, end):
+                    pred_traj_first_speed[a] = sigmoid(0)
 
     return pred_traj_first_speed.view(-1, 1)
 

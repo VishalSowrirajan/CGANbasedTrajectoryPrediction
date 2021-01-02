@@ -6,14 +6,22 @@ VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
 CHECKPOINT_NAME = 'Checkpoints/epochs5_batch128_withsigmoid.pt'
 
-# NUMBER OF CONDITION FLAG - activate one of the following flags
-SINGLE_CONDITIONAL_MODEL = False
-MULTI_CONDITIONAL_MODEL = True
+# NUMBER OF CONDITION FLAG - activate any one of the following flags
+SINGLE_CONDITIONAL_MODEL = False  # For single condition
+MULTI_CONDITIONAL_MODEL = True  # For multi condition
 
-# DATASET FLAGS FOR ANALYZING THE MAX SPEEDS.
+# MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
+# for argoverse
 AV_MAX_SPEED = 2.0
 OTHER_MAX_SPEED = 3.8
 AGENT_MAX_SPEED = 3.2
+
+# for eth/ucy
+ETH_MAX_SPEED = 3.90
+HOTEL_MAX_SPEED = 2.34
+UNIV_MAX_SPEED = 2.17
+ZARA1_MAX_SPEED = 2.49
+ZARA2_MAX_SPEED = 2.25
 
 # PYTORCH DATA LOADER OPTIONS
 NUM_WORKERS = 4
@@ -27,7 +35,6 @@ ACTIVATION_LEAKYRELU = 'leakyrelu'
 FRAMES_PER_SECOND_SINGLE_CONDITION = 0.4
 FRAMES_PER_SECOND_MULTI_CONDITION = 0.1
 NORMALIZATION_FACTOR = 10
-
 
 # ENCODER DECODER HIDDEN DIMENSION OPTIONS FOR SINGLE AND MULTI CONDITION
 H_DIM_GENERATOR_MULTI_CONDITION = 32
@@ -53,7 +60,6 @@ NOISE_DIM = (8, )
 DECODER_TIMESTEP_POOLING = False
 
 L2_LOSS_WEIGHT = 1
-SPEED_TO_ADD = 0
 
 NUM_ITERATIONS = 3200
 POOLING_TYPE = True
@@ -66,13 +72,22 @@ VERIFY_OUTPUT_SPEED = 1
 
 # ADD_SPEED_EVERY_FRAME, STOP_PED, CONSTANT_SPEED_FOR_ALL_PED, ADD_SPEED_PARTICULAR_FRAME - Only one flag out of the 4 can be activated at once.
 
-DIFFERENT_SPEED_FOR_ALL = True
+# Below flag is set to true if multi condition model on argoverse dataset is set to true.
+DIFFERENT_SPEED_MULTI_CONDITION = True
 AV_SPEED = 0.2
 AGENT_SPEED = 0.4
 OTHER_SPEED = 0.5
 
-CONSTANT_SPEED_FOR_ALL_PED = False  # CONSTANT_SPEED flag will be active only if CONSTANT_SPEED_FOR_ALL_PED is True
-CONSTANT_SPEED = 0.2
+CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
+CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
+
+# Below flag is set to true if single condition model on eth/ucy dataset is set to true.
+
+# Change any one of the below flag to True
+STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
+
+CONSTANT_SPEED_SINGLE_CONDITION = False
+CS_SINGLE_CONDITION = 0.4  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 1
 
