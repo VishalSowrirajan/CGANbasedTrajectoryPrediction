@@ -26,7 +26,8 @@ def evaluate(loader, generator, num_samples):
                 batch = [tensor.cuda() for tensor in batch]
             else:
                 batch = [tensor for tensor in batch]
-            (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
+            (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
+             pred_ped_speed,
              obs_label, pred_label) = batch
 
             ade, fde, traj_op, labels = [], [], [], []
@@ -36,25 +37,21 @@ def evaluate(loader, generator, num_samples):
 
             for _ in range(num_samples):
                 if MULTI_CONDITIONAL_MODEL:
-                    if TEST_METRIC:
-                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
-                                  TEST_METRIC, obs_label=obs_label, pred_label=pred_label)
-                    else:
-                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed,
-                                    pred_ped_speed, pred_traj_gt, 0, obs_label=obs_label, pred_label=pred_label)
+                    pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt,
+                                                   TEST_METRIC, obs_label=obs_label, pred_label=pred_label)
                 else:
-                    if TEST_METRIC:
-                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt,
-                                  TEST_METRIC, obs_label=None, pred_label=None)
-                    else:
-                        pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed,
-                                    pred_ped_speed, pred_traj_gt, 0, obs_label=None, pred_label=None)
+                    pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt,
+                                                   TEST_METRIC, obs_label=None, pred_label=None)
+
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
                 traj_op.append(pred_traj_fake.unsqueeze(dim=0))
 
-            best_traj, min_ade_error = evaluate_helper(torch.stack(ade, dim=1), torch.cat(traj_op, dim=0), seq_start_end)
+            best_traj, min_ade_error = evaluate_helper(torch.stack(ade, dim=1), torch.cat(traj_op, dim=0),
+                                                       seq_start_end)
             _, min_fde_error = evaluate_helper(torch.stack(fde, dim=1), torch.cat(traj_op, dim=0), seq_start_end)
             ade_outer.append(min_ade_error)
             fde_outer.append(min_fde_error)
