@@ -3,7 +3,7 @@ OBS_LEN = 8
 PRED_LEN = 12
 TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
-TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
+TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train111'
 CHECKPOINT_NAME = 'Checkpoints/epochs5_batch128_withsigmoid.pt'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags

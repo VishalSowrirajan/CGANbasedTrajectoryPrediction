@@ -19,7 +19,7 @@ def evaluate_helper(error, traj, seq_start_end):
 
 
 def evaluate(loader, generator, num_samples):
-    ade_outer, fde_outer, simulated_output, total_traj, sequences = [], [], [], [], []
+    ade_outer, fde_outer, simulated_output, total_traj, sequences, labels = [], [], [], [], [], []
     with torch.no_grad():
         for batch in loader:
             if USE_GPU:
@@ -30,10 +30,10 @@ def evaluate(loader, generator, num_samples):
              pred_ped_speed,
              obs_label, pred_label) = batch
 
-            ade, fde, traj_op, labels = [], [], [], []
+            ade, fde, traj_op = [], [], []
             total_traj.append(pred_traj_gt.size(1))
             sequences.append(seq_start_end)
-            labels.append(pred_label[0, :, :])
+            labels.append(pred_label)
 
             for _ in range(num_samples):
                 if MULTI_CONDITIONAL_MODEL:
@@ -59,7 +59,7 @@ def evaluate(loader, generator, num_samples):
 
         ade = sum(ade_outer) / (sum(total_traj) * PRED_LEN)
         fde = sum(fde_outer) / (sum(total_traj))
-        simulated_traj_for_visualization = torch.cat(simulated_output, dim=1)
+        simulated_traj = torch.cat(simulated_output, dim=1)
         all_labels = torch.cat(labels, dim=1)
         last_items_in_sequences = []
         curr_sequences = []
@@ -78,13 +78,16 @@ def evaluate(loader, generator, num_samples):
         sequences = torch.cat(curr_sequences, dim=0)
 
         if TEST_METRIC and VERIFY_OUTPUT_SPEED:
-            # The speed can be verified for different sequences and this method runs for n number of batches.
-            verify_speed(simulated_traj_for_visualization, sequences, all_labels)
+            if SINGLE_CONDITIONAL_MODEL:
+                # The speed can be verified for different sequences and this method runs for n number of batches.
+                verify_speed(simulated_traj, sequences, labels=None)
+            else:
+                verify_speed(simulated_traj, sequences, labels=all_labels)
 
         if ANIMATED_VISUALIZATION_CHECK:
             # Trajectories at User-defined speed for Visualization
             with open('SimulatedTraj.pkl', 'wb') as f:
-                pickle.dump(simulated_traj_for_visualization, f, pickle.HIGHEST_PROTOCOL)
+                pickle.dump(simulated_traj, f, pickle.HIGHEST_PROTOCOL)
             # Sequence list file used for Visualization
             with open('Sequences.pkl', 'wb') as f:
                 pickle.dump(sequences, f, pickle.HIGHEST_PROTOCOL)
