@@ -32,29 +32,30 @@ def main():
     print("Initializing val dataset")
     _, val_loader = data_loader(VAL_DATASET_PATH, train_metric)
 
-    iterations_per_epoch = len(train_dset) / BATCH / D_STEPS
-    print(iterations_per_epoch)
     if MULTI_CONDITIONAL_MODEL:
+        iterations_per_epoch = len(train_dset) / BATCH_MULTI_CONDITION / D_STEPS
         NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS_MULTI_CONDITION)
-    if SINGLE_CONDITIONAL_MODEL:
-        NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS_SINGLE_CONDITION)
-
-    if MULTI_CONDITIONAL_MODEL:
         generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
                                         h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
-    else:
+        discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
+                                                h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+        required_epoch = NUM_EPOCHS_MULTI_CONDITION
+
+    elif SINGLE_CONDITIONAL_MODEL:
+        iterations_per_epoch = len(train_dset) / BATCH_SINGLE_CONDITION / D_STEPS
+
+        NUM_ITERATIONS = int(iterations_per_epoch * NUM_EPOCHS_SINGLE_CONDITION)
         generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
                                         h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+        discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
+                                                h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+        required_epoch = NUM_EPOCHS_SINGLE_CONDITION
 
+    print(iterations_per_epoch)
     generator.apply(init_weights)
     generator.type(torch.FloatTensor).train()
     print('Here is the generator:')
     print(generator)
-
-    if MULTI_CONDITIONAL_MODEL:
-        discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
-    else:
-        discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION, h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
 
     discriminator.apply(init_weights)
     discriminator.type(torch.FloatTensor).train()
@@ -80,10 +81,6 @@ def main():
     }
     ade_list, fde_list, avg_speed_error, f_speed_error = [], [], [], []
 
-    if MULTI_CONDITIONAL_MODEL:
-        required_epoch = NUM_EPOCHS_MULTI_CONDITION
-    else:
-        required_epoch = NUM_EPOCHS_SINGLE_CONDITION
     while epoch < required_epoch:
         gc.collect()
         d_steps_left, g_steps_left = D_STEPS, G_STEPS
@@ -351,7 +348,7 @@ def fake_speed(fake_traj):
     sigmoid_speed = nn.Sigmoid()
     for a, b in zip(fake_traj[:, :], fake_traj[1:, :]):
         dist = torch.pairwise_distance(a, b)
-        speed = dist
+        speed = sigmoid_speed(dist)
         output_speed.append(speed.view(1, -1))
     output_fake_speed = torch.cat(output_speed, dim=0).unsqueeze(dim=2).permute(1, 0, 2)
     return output_fake_speed

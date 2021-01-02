@@ -14,12 +14,10 @@ def data_loader(path, metric):
         path,
         metric)
 
-    loader = DataLoader(
-        dset,
-        batch_size=BATCH,
-        shuffle=True,
-        num_workers=NUM_WORKERS,
-        collate_fn=seq_collate)
+    if MULTI_CONDITIONAL_MODEL:
+        loader = DataLoader(dset, batch_size=BATCH_MULTI_CONDITION, shuffle=True, num_workers=NUM_WORKERS, collate_fn=seq_collate)
+    else:
+        loader = DataLoader(dset, batch_size=BATCH_SINGLE_CONDITION, shuffle=True, num_workers=NUM_WORKERS, collate_fn=seq_collate)
     return dset, loader
 
 
