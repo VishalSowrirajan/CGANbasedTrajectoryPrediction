@@ -3,7 +3,7 @@ OBS_LEN = 8
 PRED_LEN = 12
 TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
-TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train111'
+TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
 CHECKPOINT_NAME = 'Checkpoints/epochs5_batch128_withsigmoid.pt'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
@@ -76,7 +76,7 @@ VERIFY_OUTPUT_SPEED = 1
 DIFFERENT_SPEED_MULTI_CONDITION = True
 AV_SPEED = 0.2
 AGENT_SPEED = 0.4
-OTHER_SPEED = 0.5
+OTHER_SPEED = 0.8
 
 CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
 CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
@@ -89,7 +89,7 @@ STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set 
 CONSTANT_SPEED_SINGLE_CONDITION = False
 CS_SINGLE_CONDITION = 0.4  # Constant speed single condition
 
-ANIMATED_VISUALIZATION_CHECK = 1
+ANIMATED_VISUALIZATION_CHECK = 0
 
 G_STEPS = 1
 D_STEPS = 2
