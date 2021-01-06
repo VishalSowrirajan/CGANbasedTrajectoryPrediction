@@ -214,17 +214,17 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
                         pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * AGENT_MAX_SPEED)
         elif SINGLE_CONDITIONAL_MODEL:
             if CONSTANT_SPEED_SINGLE_CONDITION:
-                dataset_name = get_dataset_name(TEST_DATASET_PATH)
+                dataset_name = get_dataset_name(SINGLE_TEST_DATASET_PATH)
                 if dataset_name == 'eth':
-                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'hotel':
-                    speed_to_simulate = HOTEL_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'univ':
-                    speed_to_simulate = ZARA2_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'zara1':
-                    speed_to_simulate = UNIV_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'zara2':
                     speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'hotel':
+                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'univ':
+                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'zara1':
+                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'zara2':
+                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
 
                 # To add an additional speed for each pedestrain and every frame
                 for a in range(start, end):
@@ -322,18 +322,18 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
-        if train_or_test == 0:
+        if train_or_test == 1:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()
                 end = end.item()
                 obs_test_traj = obs_traj[:, start:end, :]
                 pred_test_traj_rel = pred_traj_fake_rel[:, start:end, :]
-                label = pred_label[:, start:end, :]
+                #label = pred_label[:, start:end, :]
                 pred_test_traj = relative_to_abs(pred_test_traj_rel, obs_test_traj[-1])
                 speed_added = pred_ped_speed[:, start:end, :]
                 print(speed_added)
-                print(label, obs_test_traj, pred_test_traj)
+                print(pred_test_traj)
                 simulated_trajectories.append(pred_test_traj)
         return pred_traj_fake_rel
 

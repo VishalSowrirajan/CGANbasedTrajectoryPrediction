@@ -21,6 +21,7 @@ distance = np.concatenate(distance, axis=0)
 #print(distance)
 
 distance = torch.from_numpy(distance).type(torch.float)
-print(torch.sigmoid(distance))
+speed = distance / 0.4
+print(torch.sigmoid(speed))
 
 

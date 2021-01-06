@@ -50,21 +50,25 @@ def inverse_sigmoid(speeds, max_speed=None, labels=None):
 
 def get_speed_from_distance(distance):
     # Since we skip the speed calculation (see trajectories.py for more explanation), we directly pass the distance through sigmoid layer
-    sigmoid_speed = torch.sigmoid(distance)
+    if MULTI_CONDITIONAL_MODEL:
+        sigmoid_speed = torch.sigmoid(distance)
+    else:
+        speed = distance / FRAMES_PER_SECOND_SINGLE_CONDITION
+        sigmoid_speed = torch.sigmoid(speed)
     return sigmoid_speed
 
 
 def get_max_speed(path):
     if path == "eth":
-        return ETH_MAX_SPEED
-    elif path == "hotel":
-        return HOTEL_MAX_SPEED
-    elif path == "zara1":
         return ZARA1_MAX_SPEED
+    elif path == "hotel":
+        return ETH_MAX_SPEED
+    elif path == "zara1":
+        return ETH_MAX_SPEED
     elif path == "zara2":
-        return ZARA2_MAX_SPEED
+        return ETH_MAX_SPEED
     elif path == "univ":
-        return UNIV_MAX_SPEED
+        return ETH_MAX_SPEED
 
 
 def verify_speed(traj, sequences, labels=None):
