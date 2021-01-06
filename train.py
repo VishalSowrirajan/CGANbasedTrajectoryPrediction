@@ -27,10 +27,16 @@ def main():
     if MULTI_CONDITIONAL_MODEL and SINGLE_CONDITIONAL_MODEL:
         raise ValueError("Please select either Multi conditional model or single conditional model flag in constants.py")
     print("Process Started")
+    if SINGLE_CONDITIONAL_MODEL:
+        train_path = SINGLE_TRAIN_DATASET_PATH
+        val_path = SINGLE_VAL_DATASET_PATH
+    else:
+        train_path = MULTI_TRAIN_DATASET_PATH
+        val_path = MULTI_VAL_DATASET_PATH
     print("Initializing train dataset")
-    train_dset, train_loader = data_loader(TRAIN_DATASET_PATH, train_metric)
+    train_dset, train_loader = data_loader(train_path, train_metric)
     print("Initializing val dataset")
-    _, val_loader = data_loader(VAL_DATASET_PATH, train_metric)
+    _, val_loader = data_loader(val_path, train_metric)
 
     if MULTI_CONDITIONAL_MODEL:
         iterations_per_epoch = len(train_dset) / BATCH_MULTI_CONDITION / D_STEPS
@@ -193,8 +199,11 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
         batch = [tensor.cuda() for tensor in batch]
     else:
         batch = [tensor for tensor in batch]
-    (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
-     obs_label, pred_label) = batch
+    if MULTI_CONDITIONAL_MODEL:
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
+        obs_label, pred_label) = batch
+    else:
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed) = batch
 
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
@@ -265,8 +274,12 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
                 batch = [tensor.cuda() for tensor in batch]
             else:
                 batch = [tensor for tensor in batch]
-            (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
-             pred_ped_speed, obs_label, pred_label) = batch
+            if MULTI_CONDITIONAL_MODEL:
+                (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
+                 pred_ped_speed, obs_label, pred_label) = batch
+            else:
+                (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
+                 pred_ped_speed) = batch
 
             if MULTI_CONDITIONAL_MODEL:
                 pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,

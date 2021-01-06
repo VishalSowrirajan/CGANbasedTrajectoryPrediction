@@ -32,7 +32,11 @@ class Encoder(nn.Module):
 
         self.encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
 
-        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
+        if MULTI_CONDITIONAL_MODEL:
+            self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
+        else:
+            self.spatial_embedding = nn.Sequential(nn.Linear(mlp_input_dim, EMBEDDING_DIM * 2), nn.LeakyReLU(),
+                          nn.Linear(EMBEDDING_DIM * 2, EMBEDDING_DIM))
 
     def init_hidden(self, batch):
         if USE_GPU:
@@ -73,7 +77,12 @@ class Decoder(nn.Module):
         mlp_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim]
         self.mlp = make_mlp(mlp_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
-        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
+        if MULTI_CONDITIONAL_MODEL:
+            self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
+        else:
+            self.spatial_embedding = nn.Sequential(nn.Linear(mlp_input_dim, EMBEDDING_DIM * 2), nn.LeakyReLU(),
+                          nn.Linear(EMBEDDING_DIM * 2, EMBEDDING_DIM))
+
         self.hidden2pos = nn.Linear(h_dim, 2)
 
     def forward(self, last_pos, last_pos_rel, state_tuple, seq_start_end, pred_ped_speed, train_or_test, label=None):
@@ -85,10 +94,11 @@ class Decoder(nn.Module):
             else:
                 last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :]], dim=1)
         else:
-            next_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=label[0, :, :])
             if MULTI_CONDITIONAL_MODEL:
+                next_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=label[0, :, :])
                 last_pos_speed = torch.cat([last_pos_rel, next_speed, label[0, :, :]], dim=1)
             else:
+                next_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end)
                 last_pos_speed = torch.cat([last_pos_rel, next_speed], dim=1)
         decoder_input = self.spatial_embedding(last_pos_speed)
         decoder_input = decoder_input.view(1, batch, self.embedding_dim)
@@ -103,9 +113,11 @@ class Decoder(nn.Module):
                     if MULTI_CONDITIONAL_MODEL:
                         curr_label = label[id+1, :, :]
                 else:
-                    speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end, label=label[id+1, :, :])
-                    if MULTI_CONDITIONAL_MODEL:
+                    if SINGLE_CONDITIONAL_MODEL:
+                        speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end)
+                    elif MULTI_CONDITIONAL_MODEL:
                         curr_label = label[id + 1, :, :]
+                        speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end, label=curr_label)
             if MULTI_CONDITIONAL_MODEL:
                 decoder_input = torch.cat([rel_pos, speed, curr_label], dim=1)
             else:
@@ -310,7 +322,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
-        if train_or_test == 1:
+        if train_or_test == 0:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()

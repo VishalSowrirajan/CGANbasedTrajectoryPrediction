@@ -26,14 +26,18 @@ def evaluate(loader, generator, num_samples):
                 batch = [tensor.cuda() for tensor in batch]
             else:
                 batch = [tensor for tensor in batch]
-            (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
-             pred_ped_speed,
-             obs_label, pred_label) = batch
+            if MULTI_CONDITIONAL_MODEL:
+                (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
+                 pred_ped_speed, obs_label, pred_label) = batch
+            else:
+                (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
+                 pred_ped_speed) = batch
 
             ade, fde, traj_op = [], [], []
             total_traj.append(pred_traj_gt.size(1))
             sequences.append(seq_start_end)
-            labels.append(pred_label)
+            if MULTI_CONDITIONAL_MODEL:
+                labels.append(pred_label)
 
             for _ in range(num_samples):
                 if MULTI_CONDITIONAL_MODEL:
@@ -60,7 +64,8 @@ def evaluate(loader, generator, num_samples):
         ade = sum(ade_outer) / (sum(total_traj) * PRED_LEN)
         fde = sum(fde_outer) / (sum(total_traj))
         simulated_traj = torch.cat(simulated_output, dim=1)
-        all_labels = torch.cat(labels, dim=1)
+        if MULTI_CONDITIONAL_MODEL:
+            all_labels = torch.cat(labels, dim=1)
         last_items_in_sequences = []
         curr_sequences = []
         i = 0
@@ -107,7 +112,11 @@ def main():
         generator.cuda()
     generator.train()
 
-    _, loader = data_loader(TEST_DATASET_PATH, TEST_METRIC)
+    if MULTI_CONDITIONAL_MODEL:
+        test_dataset = MULTI_TEST_DATASET_PATH
+    else:
+        test_dataset = SINGLE_TEST_DATASET_PATH
+    _, loader = data_loader(test_dataset, TEST_METRIC)
     ade, fde = evaluate(loader, generator, NUM_SAMPLES)
     print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))
 

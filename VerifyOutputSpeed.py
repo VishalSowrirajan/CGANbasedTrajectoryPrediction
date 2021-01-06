@@ -71,7 +71,7 @@ def verify_speed(traj, sequences, labels=None):
     if MULTI_CONDITIONAL_MODEL:
         traj, label = get_traj(traj, sequences, labels=labels)
     else:
-        dataset_name = get_dataset_name(TEST_DATASET_PATH)
+        dataset_name = get_dataset_name(SINGLE_TEST_DATASET_PATH)
         traj = get_traj(traj, sequences, labels=None)
     dist = get_distance(traj)
     speed = get_speed_from_distance(dist)

@@ -26,8 +26,8 @@ def seq_collate(data):
         (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list, loss_mask_list, obs_obj_abs_speed,
         pred_obj_abs_speed, obs_label, pred_label) = zip(*data)
     else:
-        (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list, loss_mask_list, obs_ped_abs_speed,
-         pred_ped_abs_speed) = zip(*data)
+        (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list, loss_mask_list, obs_obj_abs_speed,
+         pred_obj_abs_speed) = zip(*data)
 
     _len = [len(seq) for seq in obs_seq_list]
     cum_start_idx = [0] + np.cumsum(_len).tolist()
@@ -53,8 +53,8 @@ def seq_collate(data):
         ]
     else:
         out = [
-            obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, loss_mask, seq_start_end, obs_ped_abs_speed,
-            pred_ped_abs_speed
+            obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, loss_mask, seq_start_end, obs_obj_abs_speed,
+            pred_obj_abs_speed
         ]
 
     return tuple(out)
@@ -67,14 +67,21 @@ def sigmoid(x):
 def read_file(_path):
     data = []
     i = 0
-    with open(_path, 'r') as f:
-        for line in f:
-            if i == 0:
-                i += 1
-                continue
-            line = line.strip().split(',')
-            line = [i for i in line]
-            data.append(line)
+    if MULTI_CONDITIONAL_MODEL:
+        with open(_path, 'r') as f:
+            for line in f:
+                if i == 0:
+                    i += 1
+                    continue
+                line = line.strip().split(',')
+                line = [i for i in line]
+                data.append(line)
+    else:
+        with open(_path, 'r') as f:
+            for line in f:
+                line = line.strip().split('\t')
+                line = [float(i) for i in line]
+                data.append(line)
     return np.asarray(data)
 
 
@@ -126,8 +133,9 @@ class TrajectoryDataset(Dataset):
                     pad_end = frames.index(curr_obj_seq[-1, 0]) - idx + 1
                     if pad_end - pad_front != SEQ_LEN:
                         continue
-                    if len(curr_obj_seq[:, 0]) != SEQ_LEN:
-                        continue
+                    if MULTI_CONDITIONAL_MODEL:
+                        if len(curr_obj_seq[:, 0]) != SEQ_LEN:
+                            continue
                     if MULTI_CONDITIONAL_MODEL:
                         curr_obj_x_axis_new = [0.0] + [np.square(float(t) - float(s)) for s, t in
                                                    zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
@@ -161,7 +169,7 @@ class TrajectoryDataset(Dataset):
                         curr_obj_seq = np.transpose(curr_obj_seq[:, 3:5])
                         _curr_obj_label[_idx, pad_front:pad_end] = embedding_label
                     else:
-                        curr_ped_seq = np.transpose(curr_ped_seq[:, 2:])
+                        curr_obj_seq = np.transpose(curr_obj_seq[:, 2:])
                     curr_obj_seq = curr_obj_seq.astype(float)
                     curr_obj_seq = np.around(curr_obj_seq, decimals=4)
 
@@ -233,7 +241,7 @@ class TrajectoryDataset(Dataset):
             out = [
                 self.obs_traj[start:end, :], self.pred_traj[start:end, :],
                 self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
-                self.loss_mask[start:end, :], self.obs_ped_abs_speed[start:end, :],
-                self.pred_ped_abs_speed[start:end, :]
+                self.loss_mask[start:end, :], self.obs_obj_abs_speed[start:end, :],
+                self.pred_obj_abs_speed[start:end, :]
             ]
         return out

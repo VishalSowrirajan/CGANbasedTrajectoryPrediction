@@ -1,14 +1,18 @@
 # DATASET OPTIONS
 OBS_LEN = 8
 PRED_LEN = 12
-TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
-VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
-TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/epochs5_batch128_withsigmoid.pt'
+MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
+MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
+MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
+CHECKPOINT_NAME = 'Checkpoints/eth12.pt'
+
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
-SINGLE_CONDITIONAL_MODEL = False  # For single condition
-MULTI_CONDITIONAL_MODEL = True  # For multi condition
+SINGLE_CONDITIONAL_MODEL = True  # For single condition
+MULTI_CONDITIONAL_MODEL = False  # For multi condition
 
 # MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
 # for argoverse
@@ -73,7 +77,7 @@ VERIFY_OUTPUT_SPEED = 1
 # ADD_SPEED_EVERY_FRAME, STOP_PED, CONSTANT_SPEED_FOR_ALL_PED, ADD_SPEED_PARTICULAR_FRAME - Only one flag out of the 4 can be activated at once.
 
 # Below flag is set to true if multi condition model on argoverse dataset is set to true.
-DIFFERENT_SPEED_MULTI_CONDITION = True
+DIFFERENT_SPEED_MULTI_CONDITION = False
 AV_SPEED = 0.2
 AGENT_SPEED = 0.4
 OTHER_SPEED = 0.8
@@ -84,7 +88,7 @@ CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
 # Below flag is set to true if single condition model on eth/ucy dataset is set to true.
 
 # Change any one of the below flag to True
-STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
+STOP_PED_SINGLE_CONDITION = True  # Speed 0 will be imposed if the flag is set to True
 
 CONSTANT_SPEED_SINGLE_CONDITION = False
 CS_SINGLE_CONDITION = 0.4  # Constant speed single condition
