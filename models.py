@@ -218,7 +218,7 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
                 if dataset_name == 'eth':
                     speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'hotel':
-                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
+                    speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'univ':
                     speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'zara1':
@@ -322,7 +322,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
-        if train_or_test == 1:
+        if train_or_test == 0:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()

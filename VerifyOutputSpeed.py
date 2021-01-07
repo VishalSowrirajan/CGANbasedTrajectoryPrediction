@@ -62,7 +62,7 @@ def get_max_speed(path):
     if path == "eth":
         return ZARA1_MAX_SPEED
     elif path == "hotel":
-        return ETH_MAX_SPEED
+        return ZARA1_MAX_SPEED
     elif path == "zara1":
         return ETH_MAX_SPEED
     elif path == "zara2":

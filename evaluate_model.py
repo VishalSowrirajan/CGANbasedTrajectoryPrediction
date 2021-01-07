@@ -117,7 +117,11 @@ def main():
     else:
         test_dataset = SINGLE_TEST_DATASET_PATH
     _, loader = data_loader(test_dataset, TEST_METRIC)
-    ade, fde = evaluate(loader, generator, NUM_SAMPLES)
+    if TEST_METRIC == 1:
+        num_samples = 20
+    else:
+        num_samples = NUM_SAMPLES
+    ade, fde = evaluate(loader, generator, num_samples)
     print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))
 
 

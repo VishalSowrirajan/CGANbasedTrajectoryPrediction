@@ -4,11 +4,11 @@ PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/eth12.pt'
+CHECKPOINT_NAME = 'Checkpoints/hotel12.pt'
 
-SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
-SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/hotel/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/hotel/val'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/hotel/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = True  # For single condition
@@ -24,7 +24,7 @@ AGENT_MAX_SPEED = 3.2
 ETH_MAX_SPEED = 3.90
 HOTEL_MAX_SPEED = 2.34
 UNIV_MAX_SPEED = 2.17
-ZARA1_MAX_SPEED = 2.49
+ZARA1_MAX_SPEED = 2.487
 ZARA2_MAX_SPEED = 2.25
 
 # PYTORCH DATA LOADER OPTIONS
