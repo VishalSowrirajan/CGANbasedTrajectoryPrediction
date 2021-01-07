@@ -222,7 +222,7 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
                 elif dataset_name == 'univ':
                     speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'zara1':
-                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
+                    speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'zara2':
                     speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
 

@@ -116,7 +116,9 @@ def main():
         test_dataset = MULTI_TEST_DATASET_PATH
     else:
         test_dataset = SINGLE_TEST_DATASET_PATH
+    print('Initializing Test dataset')
     _, loader = data_loader(test_dataset, TEST_METRIC)
+    print('Test dataset preprocessing done')
     if TEST_METRIC == 1:
         num_samples = 20
     else:
