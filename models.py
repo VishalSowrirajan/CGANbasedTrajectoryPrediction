@@ -32,11 +32,7 @@ class Encoder(nn.Module):
 
         self.encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
 
-        if MULTI_CONDITIONAL_MODEL:
-            self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
-        else:
-            self.spatial_embedding = nn.Sequential(nn.Linear(mlp_input_dim, EMBEDDING_DIM * 2), nn.LeakyReLU(),
-                          nn.Linear(EMBEDDING_DIM * 2, EMBEDDING_DIM))
+        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
 
     def init_hidden(self, batch):
         if USE_GPU:
@@ -76,12 +72,9 @@ class Decoder(nn.Module):
 
         mlp_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim]
         self.mlp = make_mlp(mlp_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
+        self.conditionalPoolingModule = ConditionalPoolingModule(h_dim=h_dim, mlp_input_dim=mlp_input_dim)
 
-        if MULTI_CONDITIONAL_MODEL:
-            self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
-        else:
-            self.spatial_embedding = nn.Sequential(nn.Linear(mlp_input_dim, EMBEDDING_DIM * 2), nn.LeakyReLU(),
-                          nn.Linear(EMBEDDING_DIM * 2, EMBEDDING_DIM))
+        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
 
         self.hidden2pos = nn.Linear(h_dim, 2)
 
@@ -102,7 +95,8 @@ class Decoder(nn.Module):
                 last_pos_speed = torch.cat([last_pos_rel, next_speed], dim=1)
         decoder_input = self.spatial_embedding(last_pos_speed)
         decoder_input = decoder_input.view(1, batch, self.embedding_dim)
-
+            # T0 - T7 is input -- hidden state
+        # T8 coordiantes, speed, label
         for id in range(PRED_LEN):
             output, state_tuple = self.decoder(decoder_input, state_tuple)
             rel_pos = self.hidden2pos(output.view(-1, self.h_dim))
@@ -111,13 +105,13 @@ class Decoder(nn.Module):
                 if train_or_test == 0:
                     speed = pred_ped_speed[id + 1, :, :]
                     if MULTI_CONDITIONAL_MODEL:
-                        curr_label = label[id+1, :, :]
+                        curr_label = label[0, :, :]
                 else:
                     if SINGLE_CONDITIONAL_MODEL:
                         speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end)
                     elif MULTI_CONDITIONAL_MODEL:
-                        curr_label = label[id + 1, :, :]
-                        speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end, label=curr_label)
+                        curr_label = label[0, :, :]
+                        speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=curr_label)
             if MULTI_CONDITIONAL_MODEL:
                 decoder_input = torch.cat([rel_pos, speed, curr_label], dim=1)
             else:
@@ -126,7 +120,11 @@ class Decoder(nn.Module):
             decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
             if DECODER_TIMESTEP_POOLING:
-                pool_h = self.pool_net(state_tuple[0], seq_start_end, train_or_test, curr_pos, speed, label[id, :, :])
+                if SINGLE_CONDITIONAL_MODEL:
+                    pool_h = self.conditionalPoolingModule(state_tuple[0], seq_start_end, train_or_test, curr_pos, speed)
+                else:
+                    pool_h = self.conditionalPoolingModule(state_tuple[0], seq_start_end, train_or_test, curr_pos,
+                                                           speed, label= label[0, :, :])
                 decoder_h = torch.cat([state_tuple[0].view(-1, self.h_dim), pool_h], dim=1)
                 decoder_h = self.mlp(decoder_h)
                 state_tuple = (decoder_h.unsqueeze(dim=0), state_tuple[1])
@@ -153,7 +151,7 @@ class ConditionalPoolingModule(nn.Module):
         mlp_pre_pool_dims = [mlp_pre_dim, 512, BOTTLENECK_DIM]
 
         self.pos_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
-        self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_LEAKYRELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
+        self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
     def forward(self, h_states, seq_start_end, train_or_test, last_pos, speed, label=None):
         pool_h = []
@@ -218,11 +216,11 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
                 if dataset_name == 'eth':
                     speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'hotel':
-                    speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'univ':
                     speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'zara1':
+                elif dataset_name == 'univ':
                     speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
+                elif dataset_name == 'zara1':
+                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
                 elif dataset_name == 'zara2':
                     speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
 
@@ -322,7 +320,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
-        if train_or_test == 0:
+        if train_or_test == 1:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()
@@ -331,7 +329,7 @@ class TrajectoryGenerator(nn.Module):
                 pred_test_traj_rel = pred_traj_fake_rel[:, start:end, :]
                 #label = pred_label[:, start:end, :]
                 pred_test_traj = relative_to_abs(pred_test_traj_rel, obs_test_traj[-1])
-                speed_added = pred_ped_speed[:, start:end, :]
+                speed_added = pred_ped_speed[0, start:end, :]
                 print(speed_added)
                 print(pred_test_traj)
                 simulated_trajectories.append(pred_test_traj)

@@ -34,9 +34,9 @@ def main():
         train_path = MULTI_TRAIN_DATASET_PATH
         val_path = MULTI_VAL_DATASET_PATH
     print("Initializing train dataset")
-    train_dset, train_loader = data_loader(train_path, train_metric)
+    train_dset, train_loader = data_loader(train_path, train_metric, 'train')
     print("Initializing val dataset")
-    _, val_loader = data_loader(val_path, train_metric)
+    _, val_loader = data_loader(val_path, train_metric, 'val')
 
     if MULTI_CONDITIONAL_MODEL:
         iterations_per_epoch = len(train_dset) / BATCH_MULTI_CONDITION / D_STEPS
@@ -120,11 +120,15 @@ def main():
                     print('  [val] {}: {:.3f}'.format(k, v))
                 for k, v in sorted(metrics_train.items()):
                     print('  [train] {}: {:.3f}'.format(k, v))
+                writer = SummaryWriter()
 
                 ade_list.append(metrics_val['ade'])
                 fde_list.append(metrics_val['fde'])
                 avg_speed_error.append(metrics_val['msae'])
                 f_speed_error.append(metrics_val['fse'])
+                writer.add_scalar('val_ade', t, metrics_val['ade'])
+                #writer.add_scalar('train_ade', t/100, metrics_train['ade'])
+                writer.close()
 
                 if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list) or metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
                     checkpoint['g_best_state'] = generator.state_dict()

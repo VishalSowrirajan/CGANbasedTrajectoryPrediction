@@ -9,10 +9,10 @@ from torch.utils.data import Dataset
 from constants import *
 
 
-def data_loader(path, metric):
+def data_loader(path, metric, train_or_val):
     dset = TrajectoryDataset(
         path,
-        metric)
+        metric, train_or_val)
 
     if MULTI_CONDITIONAL_MODEL:
         loader = DataLoader(dset, batch_size=BATCH_MULTI_CONDITION, shuffle=True, num_workers=NUM_WORKERS, collate_fn=seq_collate)
@@ -85,20 +85,62 @@ def read_file(_path):
     return np.asarray(data)
 
 
+def get_min_max_distance(seq_len, all_files):
+    ped_speed = []
+    for path in all_files:
+        data = read_file(path)
+        frames = np.unique(data[:, 0]).tolist()
+        frame_data = []
+        for frame in frames:
+            frame_data.append(data[frame == data[:, 0], :5])
+        num_sequences = int(math.ceil((len(frames) - seq_len + 1)))
+
+        for idx in range(0, num_sequences):
+            curr_seq_data = np.concatenate(frame_data[idx:idx + seq_len], axis=0)
+            obj_in_curr_seq = np.unique(curr_seq_data[:, 1])
+            for _, obj_id in enumerate(obj_in_curr_seq):
+                curr_obj_seq = curr_seq_data[curr_seq_data[:, 1] == obj_id, :]
+                pad_front = frames.index(curr_obj_seq[0, 0]) - idx
+                pad_end = frames.index(curr_obj_seq[-1, 0]) - idx + 1
+                label = curr_obj_seq[0, 2]
+                if pad_end - pad_front != seq_len:
+                    continue
+                curr_obj_x_axis_new = [0.0] + [np.square(t - s) for s, t in
+                                               zip(curr_obj_seq[:, 2], curr_obj_seq[1:, 2])]
+                curr_obj_y_axis_new = [0.0] + [np.square(t - s) for s, t in
+                                               zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
+
+                curr_obj_dist = np.sqrt(np.add(curr_obj_x_axis_new, curr_obj_y_axis_new))
+                curr_obj_speed = curr_obj_dist / 0.4
+                ped_speed.append(np.max(curr_obj_speed))
+                ped_speed.append(np.min(curr_obj_speed))
+    ped_speed = np.array(ped_speed).reshape(-1, 1)
+    # Find the domain-wise max and min speed to normalize the speed values
+    max_ped_speed = np.amax(ped_speed)
+    unique, counts = np.unique(ped_speed, return_counts=True)
+    a = np.asarray((unique, counts)).T
+    for b in a:
+        print(b)
+    return max_ped_speed
+
+
+
 class TrajectoryDataset(Dataset):
     """Dataloder for the Trajectory datasets"""
 
     def __init__(
-            self, data_dir, metric=0
+            self, data_dir, metric=0, train_or_val = None
     ):
         super(TrajectoryDataset, self).__init__()
 
         self.data_dir = data_dir
         SEQ_LEN = OBS_LEN + PRED_LEN
         self.train_or_test = metric
+        self.train_or_val = train_or_val
 
         all_files = os.listdir(self.data_dir)
         all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
+        #max_ped_speed = get_min_max_distance(SEQ_LEN, all_files)
         num_obj_in_seq = []
         seq_list = []
         seq_list_rel = []

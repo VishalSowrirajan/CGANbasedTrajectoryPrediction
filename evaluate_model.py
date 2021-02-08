@@ -6,6 +6,37 @@ from trajectories import data_loader
 from models import TrajectoryGenerator
 from utils import displacement_error, final_displacement_error, relative_to_abs
 from constants import *
+import numpy as np
+
+from scipy.spatial.distance import pdist, squareform
+
+
+def collisionPercentage(traj, sequences):
+    collided_or_not = []
+    no_of_frames = 0
+    for (start, end) in sequences:
+        curr_Traj = traj[:, start:end, :]
+        # curr_frame = curr_Traj.size(0)
+        curr_Traj = traj[:, start:end, :].cpu().data.numpy()
+        # no_of_frames += curr_frame
+        curr_collided_peds = 0
+        peds = 0
+        for trajectories in curr_Traj:
+            peds += trajectories.shape[0]
+            dist = squareform(pdist(trajectories, metric="euclidean"))
+            np.fill_diagonal(dist, np.nan)
+            #peds = dist.shape[0]
+            for rows in dist:
+                if any(i <= 0.1 for i in rows):
+                    curr_collided_peds += 1
+
+        percentage_of_collision_in_curr_frame = curr_collided_peds / peds
+        collided_or_not.append(percentage_of_collision_in_curr_frame)
+
+    collision = sum(collided_or_not) / len(collided_or_not)
+    a = sum(collided_or_not)
+
+    return torch.tensor(collision)
 
 
 def evaluate_helper(error, traj, seq_start_end):
@@ -81,6 +112,8 @@ def evaluate(loader, generator, num_samples):
                 continue
 
         sequences = torch.cat(curr_sequences, dim=0)
+        colpercent = collisionPercentage(simulated_traj, sequences)
+        print(colpercent * 100)
 
         if TEST_METRIC and VERIFY_OUTPUT_SPEED:
             if SINGLE_CONDITIONAL_MODEL:
@@ -89,13 +122,13 @@ def evaluate(loader, generator, num_samples):
             else:
                 verify_speed(simulated_traj, sequences, labels=all_labels)
 
-        if ANIMATED_VISUALIZATION_CHECK:
-            # Trajectories at User-defined speed for Visualization
-            with open('SimulatedTraj.pkl', 'wb') as f:
-                pickle.dump(simulated_traj, f, pickle.HIGHEST_PROTOCOL)
-            # Sequence list file used for Visualization
-            with open('Sequences.pkl', 'wb') as f:
-                pickle.dump(sequences, f, pickle.HIGHEST_PROTOCOL)
+        #if ANIMATED_VISUALIZATION_CHECK:
+        #    # Trajectories at User-defined speed for Visualization
+        #    with open('SimulatedTraj.pkl', 'wb') as f:
+        #        pickle.dump(simulated_traj, f, pickle.HIGHEST_PROTOCOpL)
+        #    # Sequence list file used for Visualization
+        #    with open('Sequences.pkl', 'wb') as f:
+        #        pickle.dump(sequences, f, pickle.HIGHEST_PROTOCOL)
         return ade, fde
 
 
@@ -117,10 +150,10 @@ def main():
     else:
         test_dataset = SINGLE_TEST_DATASET_PATH
     print('Initializing Test dataset')
-    _, loader = data_loader(test_dataset, TEST_METRIC)
+    _, loader = data_loader(test_dataset, TEST_METRIC, 'test')
     print('Test dataset preprocessing done')
     if TEST_METRIC == 1:
-        num_samples = 20
+        num_samples = 1
     else:
         num_samples = NUM_SAMPLES
     ade, fde = evaluate(loader, generator, num_samples)

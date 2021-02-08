@@ -45,6 +45,7 @@ def inverse_sigmoid(speeds, max_speed=None, labels=None):
                     s = a / AGENT_MAX_SPEED
                     simulated_speed.append(s.view(1, 1))
         simulated_speed = torch.cat(simulated_speed, dim=0)
+        print('the labels are: ', labels)
         print("The current speeds are: ", simulated_speed.view(PRED_LEN-1, -1))
 
 
@@ -62,9 +63,9 @@ def get_max_speed(path):
     if path == "eth":
         return ZARA1_MAX_SPEED
     elif path == "hotel":
-        return ZARA1_MAX_SPEED
+        return ETH_MAX_SPEED
     elif path == "zara1":
-        return ZARA1_MAX_SPEED
+        return ETH_MAX_SPEED
     elif path == "zara2":
         return ETH_MAX_SPEED
     elif path == "univ":
