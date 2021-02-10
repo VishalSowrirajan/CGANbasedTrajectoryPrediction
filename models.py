@@ -95,8 +95,7 @@ class Decoder(nn.Module):
                 last_pos_speed = torch.cat([last_pos_rel, next_speed], dim=1)
         decoder_input = self.spatial_embedding(last_pos_speed)
         decoder_input = decoder_input.view(1, batch, self.embedding_dim)
-            # T0 - T7 is input -- hidden state
-        # T8 coordiantes, speed, label
+
         for id in range(PRED_LEN):
             output, state_tuple = self.decoder(decoder_input, state_tuple)
             rel_pos = self.hidden2pos(output.view(-1, self.h_dim))

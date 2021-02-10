@@ -2,6 +2,7 @@ import pickle
 import torch
 
 from VerifyOutputSpeed import verify_speed
+from create_dataset import create_data
 from trajectories import data_loader
 from models import TrajectoryGenerator
 from utils import displacement_error, final_displacement_error, relative_to_abs
@@ -16,7 +17,6 @@ def collisionPercentage(traj, sequences):
     no_of_frames = 0
     for (start, end) in sequences:
         curr_Traj = traj[:, start:end, :]
-        # curr_frame = curr_Traj.size(0)
         curr_Traj = traj[:, start:end, :].cpu().data.numpy()
         # no_of_frames += curr_frame
         curr_collided_peds = 0
@@ -25,7 +25,6 @@ def collisionPercentage(traj, sequences):
             peds += trajectories.shape[0]
             dist = squareform(pdist(trajectories, metric="euclidean"))
             np.fill_diagonal(dist, np.nan)
-            #peds = dist.shape[0]
             for rows in dist:
                 if any(i <= 0.1 for i in rows):
                     curr_collided_peds += 1
@@ -50,7 +49,7 @@ def evaluate_helper(error, traj, seq_start_end):
 
 
 def evaluate(loader, generator, num_samples):
-    ade_outer, fde_outer, simulated_output, total_traj, sequences, labels = [], [], [], [], [], []
+    ade_outer, fde_outer, simulated_output, total_traj, sequences, labels, observed_traj = [], [], [], [], [], [], []
     with torch.no_grad():
         for batch in loader:
             if USE_GPU:
@@ -64,7 +63,7 @@ def evaluate(loader, generator, num_samples):
                 (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
                  pred_ped_speed) = batch
 
-            ade, fde, traj_op = [], [], []
+            ade, fde, traj_op, traj_obs = [], [], [], []
             total_traj.append(pred_traj_gt.size(1))
             sequences.append(seq_start_end)
             if MULTI_CONDITIONAL_MODEL:
@@ -84,9 +83,13 @@ def evaluate(loader, generator, num_samples):
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
                 traj_op.append(pred_traj_fake.unsqueeze(dim=0))
+                traj_obs.append(obs_traj.unsqueeze(dim=0))
 
             best_traj, min_ade_error = evaluate_helper(torch.stack(ade, dim=1), torch.cat(traj_op, dim=0),
                                                        seq_start_end)
+            staked_obs = torch.cat(traj_obs, dim=0)
+            obs = staked_obs[0]
+            observed_traj.append(obs)
             _, min_fde_error = evaluate_helper(torch.stack(fde, dim=1), torch.cat(traj_op, dim=0), seq_start_end)
             ade_outer.append(min_ade_error)
             fde_outer.append(min_fde_error)
@@ -95,6 +98,7 @@ def evaluate(loader, generator, num_samples):
         ade = sum(ade_outer) / (sum(total_traj) * PRED_LEN)
         fde = sum(fde_outer) / (sum(total_traj))
         simulated_traj = torch.cat(simulated_output, dim=1)
+        total_obs = torch.cat(observed_traj, dim=1).permute(1, 0, 2)
         if MULTI_CONDITIONAL_MODEL:
             all_labels = torch.cat(labels, dim=1)
         last_items_in_sequences = []
@@ -113,6 +117,7 @@ def evaluate(loader, generator, num_samples):
 
         sequences = torch.cat(curr_sequences, dim=0)
         colpercent = collisionPercentage(simulated_traj, sequences)
+        create_data(torch.cat([total_obs, simulated_traj.permute(1, 0, 2)], dim=1), sequences)
         print(colpercent * 100)
 
         if TEST_METRIC and VERIFY_OUTPUT_SPEED:
@@ -122,13 +127,6 @@ def evaluate(loader, generator, num_samples):
             else:
                 verify_speed(simulated_traj, sequences, labels=all_labels)
 
-        #if ANIMATED_VISUALIZATION_CHECK:
-        #    # Trajectories at User-defined speed for Visualization
-        #    with open('SimulatedTraj.pkl', 'wb') as f:
-        #        pickle.dump(simulated_traj, f, pickle.HIGHEST_PROTOCOpL)
-        #    # Sequence list file used for Visualization
-        #    with open('Sequences.pkl', 'wb') as f:
-        #        pickle.dump(sequences, f, pickle.HIGHEST_PROTOCOL)
         return ade, fde
 
 
@@ -153,7 +151,7 @@ def main():
     _, loader = data_loader(test_dataset, TEST_METRIC, 'test')
     print('Test dataset preprocessing done')
     if TEST_METRIC == 1:
-        num_samples = 1
+        num_samples = 20
     else:
         num_samples = NUM_SAMPLES
     ade, fde = evaluate(loader, generator, num_samples)

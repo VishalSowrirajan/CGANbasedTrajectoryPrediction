@@ -4,11 +4,11 @@ PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/eth8,12WithoutPooling'
+CHECKPOINT_NAME = 'Checkpoints/zara2-8,12WithoutPooling'
 
-SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
-SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/hotel/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/hotel/val'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara2/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = True  # For single condition
@@ -91,7 +91,7 @@ CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
 STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
 
 CONSTANT_SPEED_SINGLE_CONDITION = True
-CS_SINGLE_CONDITION = 0.5  # Constant speed single condition
+CS_SINGLE_CONDITION = 0.9  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0
 
