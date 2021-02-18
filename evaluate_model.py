@@ -4,7 +4,7 @@ import torch
 from VerifyOutputSpeed import verify_speed
 from create_dataset import create_data
 from trajectories import data_loader
-from models import TrajectoryGenerator
+from models import TrajectoryGenerator, SpeedDecoder
 from utils import displacement_error, final_displacement_error, relative_to_abs
 from constants import *
 import numpy as np
@@ -48,7 +48,7 @@ def evaluate_helper(error, traj, seq_start_end):
     return torch.cat(curr_best_traj, dim=1), sum(sum_)
 
 
-def evaluate(loader, generator, num_samples):
+def evaluate(loader, generator, num_samples, speed_regressor):
     ade_outer, fde_outer, simulated_output, total_traj, sequences, labels, observed_traj = [], [], [], [], [], [], []
     with torch.no_grad():
         for batch in loader:
@@ -71,13 +71,21 @@ def evaluate(loader, generator, num_samples):
 
             for _ in range(num_samples):
                 if MULTI_CONDITIONAL_MODEL:
-                    pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                    #fake_pred_speed = speed_regressor()
+                    pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
-                                                   TEST_METRIC, obs_label=obs_label, pred_label=pred_label)
+                                                   TEST_METRIC, None, obs_label=obs_label, pred_label=pred_label)
                 else:
-                    pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                    _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt, 0, None, obs_label=None, pred_label=None)
+                    fake_speed = speed_regressor(final_enc_h)
+                    pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
-                                                   TEST_METRIC, obs_label=None, pred_label=None)
+                                                   1, fake_speed, obs_label=None, pred_label=None)
+
+                    #for a, b in zip(fake_speed, pred_ped_speed):
+                    #    print(a, b)
+
 
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
@@ -117,15 +125,15 @@ def evaluate(loader, generator, num_samples):
 
         sequences = torch.cat(curr_sequences, dim=0)
         colpercent = collisionPercentage(simulated_traj, sequences)
-        create_data(torch.cat([total_obs, simulated_traj.permute(1, 0, 2)], dim=1), sequences)
+        #create_data(simulated_traj.permute(1, 0, 2), sequences)
         print(colpercent * 100)
 
-        if TEST_METRIC and VERIFY_OUTPUT_SPEED:
-            if SINGLE_CONDITIONAL_MODEL:
-                # The speed can be verified for different sequences and this method runs for n number of batches.
-                verify_speed(simulated_traj, sequences, labels=None)
-            else:
-                verify_speed(simulated_traj, sequences, labels=all_labels)
+        #if TEST_METRIC and VERIFY_OUTPUT_SPEED:
+        #    if SINGLE_CONDITIONAL_MODEL:
+        #        # The speed can be verified for different sequences and this method runs for n number of batches.
+        #        verify_speed(simulated_traj, sequences, labels=None)
+        #    else:
+        #        verify_speed(simulated_traj, sequences, labels=all_labels)
 
         return ade, fde
 
@@ -135,13 +143,17 @@ def main():
     if MULTI_CONDITIONAL_MODEL:
         generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
                                         h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
+        speed_regressor = SpeedDecoder(h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
     else:
         generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
                                         h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+        speed_regressor = SpeedDecoder(h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
     generator.load_state_dict(checkpoint['g_state'])
+    speed_regressor.load_state_dict(checkpoint['regressor_state'])
     if USE_GPU:
         generator.cuda()
     generator.train()
+    speed_regressor.train()
 
     if MULTI_CONDITIONAL_MODEL:
         test_dataset = MULTI_TEST_DATASET_PATH
@@ -154,7 +166,7 @@ def main():
         num_samples = 20
     else:
         num_samples = NUM_SAMPLES
-    ade, fde = evaluate(loader, generator, num_samples)
+    ade, fde = evaluate(loader, generator, num_samples, speed_regressor)
     print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))
 
 

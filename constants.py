@@ -4,15 +4,17 @@ PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/zara2-8,12WithoutPooling'
+CHECKPOINT_NAME = 'Checkpoints/Speed_From_Encoder/eth_NewArch_Try50Epochs.pt'
+#MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/forecasting_test_v1.1.tar/test_obs\data'
 
-SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/hotel/train'
-SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/hotel/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara2/test'
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = True  # For single condition
 MULTI_CONDITIONAL_MODEL = False  # For multi condition
+MODEL_TYPE = 0  # 0 for prediction and 1 for simulation
 
 # MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
 # for argoverse
@@ -21,19 +23,20 @@ OTHER_MAX_SPEED = 2.2
 AGENT_MAX_SPEED = 2
 
 # for eth/ucy
-ETH_MAX_SPEED = 1.9  #2.3
-HOTEL_MAX_SPEED = 1.9
-UNIV_MAX_SPEED = 1.9
-ZARA1_MAX_SPEED = 1.9
-ZARA2_MAX_SPEED = 1.9
+ETH_MAX_SPEED = 2.0  #2.3
+HOTEL_MAX_SPEED = 2.0
+UNIV_MAX_SPEED = 2.0
+ZARA1_MAX_SPEED = 2.0
+ZARA2_MAX_SPEED = 2.0
 
 # PYTORCH DATA LOADER OPTIONS
 NUM_WORKERS = 4
-BATCH_MULTI_CONDITION = 128
+BATCH_MULTI_CONDITION = 64
 BATCH_SINGLE_CONDITION = 16
 BATCH_NORM = False
 ACTIVATION_RELU = 'relu'
 ACTIVATION_LEAKYRELU = 'leakyrelu'
+ACTIVATION_SIGMOID = 'sigmoid'
 
 # Time between consecutive frames
 FRAMES_PER_SECOND_SINGLE_CONDITION = 0.4
@@ -54,8 +57,8 @@ MLP_INPUT_DIM_SINGLE_CONDITION = 3
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
-NUM_EPOCHS_MULTI_CONDITION = 4
-NUM_EPOCHS_SINGLE_CONDITION = 200
+NUM_EPOCHS_MULTI_CONDITION = 20
+NUM_EPOCHS_SINGLE_CONDITION = 50
 CHECKPOINT_EVERY = 100
 MLP_DIM = 64
 EMBEDDING_DIM = 16
@@ -77,10 +80,10 @@ VERIFY_OUTPUT_SPEED = 1
 # ADD_SPEED_EVERY_FRAME, STOP_PED, CONSTANT_SPEED_FOR_ALL_PED, ADD_SPEED_PARTICULAR_FRAME - Only one flag out of the 4 can be activated at once.
 
 # Below flag is set to true if multi condition model on argoverse dataset is set to true.
-DIFFERENT_SPEED_MULTI_CONDITION = True
-AV_SPEED = 0.8
-AGENT_SPEED = 0.8
-OTHER_SPEED = 0.8
+DIFFERENT_SPEED_MULTI_CONDITION = False
+AV_SPEED = 0.0
+AGENT_SPEED = 0.5
+OTHER_SPEED = 0.4
 
 CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
 CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
@@ -91,14 +94,15 @@ CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
 STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
 
 CONSTANT_SPEED_SINGLE_CONDITION = True
-CS_SINGLE_CONDITION = 0.9  # Constant speed single condition
+CS_SINGLE_CONDITION = 0.0  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0
 
 G_STEPS = 1
 D_STEPS = 2
+SR_STEPS = 1
 BEST_K = 10
 PRINT_EVERY = 100
 NUM_SAMPLES = 20
 NOISE = True
-NUM_SAMPLE_CHECK = 5000
+NUM_SAMPLE_CHECK = 100

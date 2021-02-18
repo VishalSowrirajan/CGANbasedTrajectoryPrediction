@@ -9,9 +9,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 from trajectories import data_loader
 from utils import gan_g_loss, gan_d_loss, l2_loss, mean_speed_error, \
-    final_speed_error, displacement_error, final_displacement_error, relative_to_abs
+    final_speed_error, displacement_error, final_displacement_error, relative_to_abs, rmse_loss
 
-from models import TrajectoryGenerator, TrajectoryDiscriminator
+from models import TrajectoryGenerator, TrajectoryDiscriminator, SpeedDecoder
 
 torch.backends.cudnn.benchmark = True
 
@@ -44,7 +44,8 @@ def main():
         generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
                                         h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
         discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_MULTI_CONDITION,
-                                                h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+                                                h_dim=H_DIM_DISCRIMINATOR_MULTI_CONDITION)
+        speed_regressor = SpeedDecoder(h_dim=H_DIM_GENERATOR_MULTI_CONDITION)
         required_epoch = NUM_EPOCHS_MULTI_CONDITION
 
     elif SINGLE_CONDITIONAL_MODEL:
@@ -54,7 +55,8 @@ def main():
         generator = TrajectoryGenerator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
                                         h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
         discriminator = TrajectoryDiscriminator(mlp_dim=MLP_INPUT_DIM_SINGLE_CONDITION,
-                                                h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
+                                                h_dim=H_DIM_DISCRIMINATOR_SINGLE_CONDITION)
+        speed_regressor = SpeedDecoder(h_dim=H_DIM_GENERATOR_SINGLE_CONDITION)
         required_epoch = NUM_EPOCHS_SINGLE_CONDITION
 
     print(iterations_per_epoch)
@@ -68,11 +70,17 @@ def main():
     print('Here is the discriminator:')
     print(discriminator)
 
+    speed_regressor.apply(init_weights)
+    speed_regressor.type(torch.FloatTensor).train()
+    print('Here is the Speed Regressor:')
+    print(speed_regressor)
+
     g_loss_fn = gan_g_loss
     d_loss_fn = gan_d_loss
 
     optimizer_g = optim.Adam(generator.parameters(), lr=G_LEARNING_RATE)
     optimizer_d = optim.Adam(discriminator.parameters(), lr=D_LEARNING_RATE)
+    optimizer_speed_regressor = optim.Adam(speed_regressor.parameters(), lr=D_LEARNING_RATE)
 
     t, epoch = 0, 0
     checkpoint = {
@@ -83,25 +91,49 @@ def main():
         'd_state': None,
         'd_optim_state': None,
         'g_best_state': None,
-        'd_best_state': None
+        'd_best_state': None,
+        'best_regressor_state': None,
+        'regressor_state': None
     }
-    ade_list, fde_list, avg_speed_error, f_speed_error = [], [], [], []
+    ade_list, fde_list, train_ade, train_fde, train_avg_speed_error, val_avg_speed_error, val_msae_list = [], [], [], [], [], [], []
+    gen_writer = SummaryWriter("runs/gen")
+    dis_writer = SummaryWriter("runs/dis")
+
+    speed_regressor_loss_writer = SummaryWriter("runs/speed_regressor_loss")
+
+    trainade = SummaryWriter("runs/trainade")
+    trainfde = SummaryWriter("runs/trainfde")
+    valade = SummaryWriter("runs/valade")
+    valfde = SummaryWriter("runs/valfde")
 
     while epoch < required_epoch:
         gc.collect()
-        d_steps_left, g_steps_left = D_STEPS, G_STEPS
+        d_steps_left, g_steps_left, speed_regression_steps_left = D_STEPS, G_STEPS, SR_STEPS
         epoch += 1
         print('Starting epoch {}'.format(epoch))
+        disc_loss, gent_loss, sr_loss = [], [], []
         for batch in train_loader:
             if d_steps_left > 0:
                 losses_d = discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d)
+                disc_loss.append(losses_d['D_total_loss'])
                 d_steps_left -= 1
             elif g_steps_left > 0:
                 losses_g = generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g)
+                speed_regression_loss = speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regressor)
+                losses_g['Speed_Regression_Loss'] = speed_regression_loss['Speed_Regression_Loss']
+                gent_loss.append(losses_g['G_discriminator_loss'])
+                sr_loss.append(speed_regression_loss['Speed_Regression_Loss'])
                 g_steps_left -= 1
 
             if d_steps_left > 0 or g_steps_left > 0:
                 continue
+
+            #gen_writer.add_scalar('loss', gent_loss[0], epoch)
+            #dis_writer.add_scalar('loss', disc_loss[0], epoch)
+            #gen_writer.close()
+            #dis_writer.close()
+            #disc_loss.clear()
+            #gent_loss.clear()
 
             if t > 0 and t % CHECKPOINT_EVERY == 0:
 
@@ -112,35 +144,47 @@ def main():
                     print('  [G] {}: {:.3f}'.format(k, v))
 
                 print('Checking stats on val ...')
-                metrics_val = check_accuracy(val_loader, generator, discriminator, d_loss_fn)
+                metrics_val = check_accuracy(val_loader, generator, discriminator, d_loss_fn, speed_regressor)
                 print('Checking stats on train ...')
-                metrics_train = check_accuracy(train_loader, generator, discriminator, d_loss_fn)
+                metrics_train = check_accuracy(train_loader, generator, discriminator, d_loss_fn, speed_regressor)
 
                 for k, v in sorted(metrics_val.items()):
                     print('  [val] {}: {:.3f}'.format(k, v))
                 for k, v in sorted(metrics_train.items()):
                     print('  [train] {}: {:.3f}'.format(k, v))
-                writer = SummaryWriter()
 
                 ade_list.append(metrics_val['ade'])
                 fde_list.append(metrics_val['fde'])
-                avg_speed_error.append(metrics_val['msae'])
-                f_speed_error.append(metrics_val['fse'])
-                writer.add_scalar('val_ade', t, metrics_val['ade'])
-                #writer.add_scalar('train_ade', t/100, metrics_train['ade'])
-                writer.close()
+                val_msae_list.append(metrics_val['mean_l2_speed'])
+
+                trainade.add_scalar('ade_loss', metrics_train['ade'], epoch)
+                valade.add_scalar('ade_loss', metrics_val['ade'], epoch)
+
+                trainfde.add_scalar('fde_loss', metrics_train['fde'], epoch)
+                valfde.add_scalar('fde_loss', metrics_val['fde'], epoch)
+
+                trainade.close()
+                valade.close()
+
+                trainfde.close()
+                valfde.close()
 
                 if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list) or metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
                     checkpoint['g_best_state'] = generator.state_dict()
                 if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list):
                     print('New low for avg_disp_error')
+                    checkpoint['best_g_state'] = generator.state_dict()
                 if metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
                     print('New low for final_disp_error')
+                if metrics_val.get('mean_l2_speed') == min(val_msae_list) or metrics_val['mean_l2_speed'] < min(val_msae_list):
+                    print('New low for Speed regressor model')
+                    checkpoint['best_regressor_state'] = speed_regressor.state_dict()
 
                 checkpoint['g_state'] = generator.state_dict()
                 checkpoint['g_optim_state'] = optimizer_g.state_dict()
                 checkpoint['d_state'] = discriminator.state_dict()
                 checkpoint['d_optim_state'] = optimizer_d.state_dict()
+                checkpoint['regressor_state'] = speed_regressor.state_dict()
                 torch.save(checkpoint, CHECKPOINT_NAME)
                 print('Done.')
 
@@ -149,6 +193,10 @@ def main():
             g_steps_left = G_STEPS
             if t >= NUM_ITERATIONS:
                 break
+        total_speed_loss = sum(sr_loss) / len(sr_loss)
+        print('total_speed_loss', total_speed_loss)
+        speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
+        speed_regressor_loss_writer.close()
 
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
@@ -159,12 +207,12 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
         batch = [tensor for tensor in batch]
     if MULTI_CONDITIONAL_MODEL:
         (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label) = batch
-        generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, obs_label=obs_label, pred_label=pred_label)
+        generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, None, obs_label=obs_label, pred_label=pred_label)
     else:
         (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed) = batch
-        generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, obs_label=None, pred_label=None)
+        generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, None, obs_label=None, pred_label=None)
 
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
@@ -197,6 +245,52 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
     return losses
 
 
+def speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regressor):
+    losses = {}
+    speed_loss = []
+
+    if USE_GPU:
+        batch = [tensor.cuda() for tensor in batch]
+    else:
+        batch = [tensor for tensor in batch]
+    if MULTI_CONDITIONAL_MODEL:
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
+        obs_label, pred_label) = batch
+    else:
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
+         pred_ped_speed) = batch
+    if MULTI_CONDITIONAL_MODEL:
+        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, None, obs_label=obs_label, pred_label=pred_label)
+    else:
+        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, None, obs_label=None, pred_label=None)
+
+    fake_ped_speed = speed_regressor(final_enc_h)
+
+    speed_loss.append(L2_LOSS_WEIGHT * rmse_loss(
+            fake_ped_speed,
+            pred_ped_speed,
+            mode='raw',
+            speed_reg='speed_regressor'))
+
+    total_speed_loss = torch.zeros(1).to(pred_ped_speed)
+    speed_loss = torch.stack(speed_loss, dim=1)
+
+    for start, end in seq_start_end.data:
+        _speed_loss = speed_loss[start:end]
+        _speed_loss = torch.sum(_speed_loss, dim=0)
+        _speed_loss = torch.min(_speed_loss) / torch.sum(loss_mask[start:end])
+        total_speed_loss += _speed_loss
+    losses['Speed_Regression_Loss'] = total_speed_loss.item()
+
+    optimizer_speed_regressor.zero_grad()
+    total_speed_loss.backward()
+    optimizer_speed_regressor.step()
+
+    return losses
+
+
 def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
     """This step is similar to Social GAN Code"""
     if USE_GPU:
@@ -217,11 +311,11 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
 
     for _ in range(BEST_K):
         if MULTI_CONDITIONAL_MODEL:
-            generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, obs_label=obs_label, pred_label=pred_label)
+            generator_out, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, None, obs_label=obs_label, pred_label=pred_label)
         else:
-            generator_out = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, TRAIN_METRIC, obs_label=None, pred_label=None)
+            generator_out, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, TRAIN_METRIC, None, obs_label=None, pred_label=None)
 
         pred_traj_fake_rel = generator_out
         pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
@@ -264,7 +358,7 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
     return losses
 
 
-def check_accuracy(loader, generator, discriminator, d_loss_fn):
+def check_accuracy(loader, generator, discriminator, d_loss_fn, speed_regressor):
     d_losses = []
     metrics = {}
     g_l2_losses_abs, g_l2_losses_rel = ([],) * 2
@@ -286,11 +380,13 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
                  pred_ped_speed) = batch
 
             if MULTI_CONDITIONAL_MODEL:
-                pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, obs_label=obs_label, pred_label=pred_label)
+                pred_traj_fake_rel, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, None, obs_label=obs_label, pred_label=pred_label)
             else:
-                pred_traj_fake_rel = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, TRAIN_METRIC, obs_label=None, pred_label=None)
+                pred_traj_fake_rel, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, TRAIN_METRIC, None, obs_label=None, pred_label=None)
+
+            fake_ped_speed = speed_regressor(final_enc_h)
 
             pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
             loss_mask = loss_mask[:, OBS_LEN:]
@@ -299,13 +395,10 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
                 pred_traj_gt, pred_traj_gt_rel, pred_traj_fake,
                 pred_traj_fake_rel, loss_mask
             )
+
+            abs_speed_los = cal_rmse_speed_loss(pred_ped_speed, fake_ped_speed)
             ade = displacement_error(pred_traj_gt, pred_traj_fake)
             fde = final_displacement_error(pred_traj_gt, pred_traj_fake)
-
-            last_pos = obs_traj[-1]
-            traj_for_speed_cal = torch.cat([last_pos.unsqueeze(dim=0), pred_traj_fake], dim=0)
-            msae = cal_msae(pred_ped_speed, traj_for_speed_cal)
-            fse = cal_fse(pred_ped_speed[-1], pred_traj_fake)
 
             traj_real = torch.cat([obs_traj, pred_traj_gt], dim=0)
             traj_real_rel = torch.cat([obs_traj_rel, pred_traj_gt_rel], dim=0)
@@ -327,8 +420,7 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
             g_l2_losses_rel.append(g_l2_loss_rel.item())
             disp_error.append(ade.item())
             f_disp_error.append(fde.item())
-            mean_speed_disp_error.append(msae.item())
-            final_speed_disp_error.append(fse.item())
+            mean_speed_disp_error.append(abs_speed_los.item())
 
             loss_mask_sum += torch.numel(loss_mask.data)
             total_traj += pred_traj_gt.size(1)
@@ -340,8 +432,7 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn):
     metrics['g_l2_loss_rel'] = sum(g_l2_losses_rel) / loss_mask_sum
     metrics['ade'] = sum(disp_error) / (total_traj * PRED_LEN)
     metrics['fde'] = sum(f_disp_error) / total_traj
-    metrics['msae'] = sum(mean_speed_disp_error) / (total_traj * PRED_LEN)
-    metrics['fse'] = sum(final_speed_disp_error) / total_traj
+    metrics['mean_l2_speed'] = sum(mean_speed_disp_error) / len(mean_speed_disp_error)
 
     generator.train()
     return metrics
@@ -351,6 +442,11 @@ def cal_l2_losses(pred_traj_gt, pred_traj_gt_rel, pred_traj_fake, pred_traj_fake
     g_l2_loss_abs = l2_loss(pred_traj_fake, pred_traj_gt, loss_mask, mode='sum')
     g_l2_loss_rel = l2_loss(pred_traj_fake_rel, pred_traj_gt_rel, loss_mask, mode='sum')
     return g_l2_loss_abs, g_l2_loss_rel
+
+
+def cal_rmse_speed_loss(pred_speed_gt, pred_speed_fake):
+    g_l2_speed_loss = rmse_loss(pred_speed_gt, pred_speed_fake, speed_reg='speed_reg', mode='sum')
+    return g_l2_speed_loss
 
 
 def cal_msae(real_speed, fake_traj):
