@@ -37,7 +37,7 @@ def l2_loss(pred_traj, pred_traj_gt, loss_mask, random=0, mode='average', speed_
         return loss.sum(dim=2).sum(dim=1)
 
 
-def rmse_loss(pred_traj, pred_traj_gt, random=0, mode='average', speed_reg=None):
+def mae_loss(pred_traj, pred_traj_gt, random=0, mode='average', speed_reg=None):
     seq_len, batch, _ = pred_traj.size()
     loss = torch.abs(pred_traj_gt.permute(1, 0, 2) - pred_traj.permute(1, 0, 2))
     if mode == 'sum':

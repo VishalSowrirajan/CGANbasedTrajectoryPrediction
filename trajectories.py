@@ -24,10 +24,10 @@ def data_loader(path, metric, train_or_val):
 def seq_collate(data):
     if MULTI_CONDITIONAL_MODEL:
         (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list, loss_mask_list, obs_obj_abs_speed,
-        pred_obj_abs_speed, obs_label, pred_label) = zip(*data)
+        pred_obj_abs_speed, obs_label, pred_label, obs_obj_rel_speed) = zip(*data)
     else:
         (obs_seq_list, pred_seq_list, obs_seq_rel_list, pred_seq_rel_list, loss_mask_list, obs_obj_abs_speed,
-         pred_obj_abs_speed) = zip(*data)
+         pred_obj_abs_speed, obs_obj_rel_speed) = zip(*data)
 
     _len = [len(seq) for seq in obs_seq_list]
     cum_start_idx = [0] + np.cumsum(_len).tolist()
@@ -41,6 +41,7 @@ def seq_collate(data):
     pred_obj_abs_speed = torch.cat(pred_obj_abs_speed, dim=0).permute(2, 0, 1)
     seq_start_end = torch.LongTensor(seq_start_end)
     loss_mask = torch.cat(loss_mask_list, dim=0)
+    obs_obj_rel_speed = torch.cat(obs_obj_rel_speed, dim=0).permute(2, 0, 1)
 
     if MULTI_CONDITIONAL_MODEL:
         obs_label = torch.cat(obs_label, dim=0).permute(2, 0, 1)
@@ -49,12 +50,12 @@ def seq_collate(data):
     if MULTI_CONDITIONAL_MODEL:
         out = [
             obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, loss_mask, seq_start_end, obs_obj_abs_speed,
-            pred_obj_abs_speed, obs_label, pred_label
+            pred_obj_abs_speed, obs_label, pred_label, obs_obj_rel_speed
         ]
     else:
         out = [
             obs_traj, pred_traj, obs_traj_rel, pred_traj_rel, loss_mask, seq_start_end, obs_obj_abs_speed,
-            pred_obj_abs_speed
+            pred_obj_abs_speed, obs_obj_rel_speed
         ]
 
     return tuple(out)
@@ -145,6 +146,7 @@ class TrajectoryDataset(Dataset):
         seq_list = []
         seq_list_rel = []
         obj_abs_speed = []
+        obj_rel_speed = []
         obj_label = []
         loss_mask_list = []
         for path in all_files:
@@ -162,6 +164,7 @@ class TrajectoryDataset(Dataset):
                 obj_in_curr_seq = np.unique(curr_seq_data[:, 1])
                 curr_loss_mask = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
                 curr_seq_rel = np.zeros((len(obj_in_curr_seq), 2, SEQ_LEN))
+                curr_seq_rel_speed = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
                 curr_seq = np.zeros((len(obj_in_curr_seq), 2, SEQ_LEN))
                 _curr_obj_abs_speed = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
                 _curr_obj_label = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
@@ -220,8 +223,12 @@ class TrajectoryDataset(Dataset):
                     curr_seq[_idx, :, pad_front:pad_end] = curr_obj_seq
                     curr_seq_rel[_idx, :, pad_front:pad_end] = rel_curr_obj_seq
 
+                    rel_curr_obj_speed = np.zeros(curr_obj_abs_speed.shape)
+                    rel_curr_obj_speed[1:] = curr_obj_abs_speed[1:] - curr_obj_abs_speed[:-1]
+
                     curr_loss_mask[_idx, pad_front:pad_end] = 1
                     _curr_obj_abs_speed[_idx, pad_front:pad_end] = curr_obj_abs_speed
+                    curr_seq_rel_speed[_idx, pad_front:pad_end] = rel_curr_obj_speed
                     num_obj_considered += 1
 
                 if num_obj_considered > 1:
@@ -232,13 +239,16 @@ class TrajectoryDataset(Dataset):
                         obj_label.append(_curr_obj_label[:num_obj_considered])
                     seq_list.append(curr_seq[:num_obj_considered])
                     seq_list_rel.append(curr_seq_rel[:num_obj_considered])
+                    obj_rel_speed.append(curr_seq_rel_speed[:num_obj_considered])
 
         self.num_seq = len(seq_list)
         seq_list = np.concatenate(seq_list, axis=0)
         seq_list_rel = np.concatenate(seq_list_rel, axis=0)
         obj_abs_speed = np.concatenate(obj_abs_speed, axis=0)
+        obj_rel_speed = np.concatenate(obj_rel_speed, axis=0)
         loss_mask_list = np.concatenate(loss_mask_list, axis=0)
         obj_abs_speed = torch.from_numpy(obj_abs_speed).type(torch.float)
+        obj_rel_speed = torch.from_numpy(obj_rel_speed).type(torch.float)
         if MULTI_CONDITIONAL_MODEL:
             obj_label = np.concatenate(obj_label, axis=0)
 
@@ -254,6 +264,8 @@ class TrajectoryDataset(Dataset):
 
         self.obs_obj_abs_speed = obj_abs_speed[:, :OBS_LEN].unsqueeze(dim=1).type(torch.float)
         self.pred_obj_abs_speed = obj_abs_speed[:, OBS_LEN:].unsqueeze(dim=1).type(torch.float)
+
+        self.obs_obj_rel_speed = obj_rel_speed[:, :OBS_LEN].unsqueeze(dim=1).type(torch.float)
         self.loss_mask = torch.from_numpy(loss_mask_list).type(torch.float)
 
         if MULTI_CONDITIONAL_MODEL:
@@ -277,13 +289,13 @@ class TrajectoryDataset(Dataset):
                 self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
                 self.loss_mask[start:end, :], self.obs_obj_abs_speed[start:end, :],
                 self.pred_obj_abs_speed[start:end, :], self.obs_obj_label[start:end, :],
-                self.pred_obj_label[start:end, :]
+                self.pred_obj_label[start:end, :], self.obs_obj_rel_speed[start:end, :]
             ]
         else:
             out = [
                 self.obs_traj[start:end, :], self.pred_traj[start:end, :],
                 self.obs_traj_rel[start:end, :], self.pred_traj_rel[start:end, :],
                 self.loss_mask[start:end, :], self.obs_obj_abs_speed[start:end, :],
-                self.pred_obj_abs_speed[start:end, :]
+                self.pred_obj_abs_speed[start:end, :], self.obs_obj_rel_speed[start:end, :]
             ]
         return out
