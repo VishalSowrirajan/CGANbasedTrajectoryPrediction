@@ -42,13 +42,14 @@ class SpeedEncoderDecoder(nn.Module):
             c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim), torch.zeros(self.num_layers, batch, self.h_dim)
         return c_s, r_s
 
-    def forward(self, obs_speed, label=None):
+
+    def forward(self, obs_speed, final_enc_h, label=None):
         batch = obs_speed.size(1)
-        speed_embedding = self.spatial_embedding(obs_speed.contiguous().view(-1, 1))
-        obs_speed_embedding = speed_embedding.view(-1, batch, self.embedding_dim)
-        state_tuple = self.init_hidden(batch)
-        output, state = self.speed_encoder(obs_speed_embedding, state_tuple)
-        final_enc_h = state[0]
+        #speed_embedding = self.spatial_embedding(obs_speed.contiguous().view(-1, 1))
+        #obs_speed_embedding = speed_embedding.view(-1, batch, self.embedding_dim)
+        #state_tuple = self.init_hidden(batch)
+        #output, state = self.speed_encoder(obs_speed_embedding, state_tuple)
+        #final_enc_h = state[0]
 
         pred_speed_fake = []
         final_enc_h = final_enc_h.view(-1, self.h_dim)
@@ -314,7 +315,7 @@ class TrajectoryGenerator(nn.Module):
                 print(pred_test_traj)
                 #print(pred_traj[:, start:end, :])
                 simulated_trajectories.append(pred_test_traj)
-        return pred_traj_fake_rel, final_encoder_h
+        return pred_traj_fake_rel, decoder_h.view(-1, self.h_dim)
 
 
 class EncoderDiscriminator(nn.Module):

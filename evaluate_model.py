@@ -78,10 +78,10 @@ def evaluate(loader, generator, num_samples, speed_regressor):
                 else:
                     #_, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                     #                               pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
-                    fake_speed = speed_regressor(obs_obj_rel_speed)
+                    #fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
                     pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
-                                                   TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
+                                                   TEST_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
                    # for a, b in zip(fake_speed, pred_ped_speed):
                    #     print(a, b)
