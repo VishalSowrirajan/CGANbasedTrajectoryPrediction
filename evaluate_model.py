@@ -72,19 +72,22 @@ def evaluate(loader, generator, num_samples, speed_regressor):
             for _ in range(num_samples):
                 if MULTI_CONDITIONAL_MODEL:
                     #fake_pred_speed = speed_regressor()
+                    _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt, 2, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+                    fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
                     pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
-                                                   TEST_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+                                                   TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
                 else:
-                    #_, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                    #                               pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
-                    #fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
+                    _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
+                    fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
                     pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
-                                                   TEST_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
+                                                   TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
-                   # for a, b in zip(fake_speed, pred_ped_speed):
-                   #     print(a, b)
+                    #for a, b in zip(fake_speed, pred_ped_speed):
+                    #    print(a, b)
 
 
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])

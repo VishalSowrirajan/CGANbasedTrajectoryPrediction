@@ -95,7 +95,8 @@ def main():
         'best_regressor_state': None,
         'regressor_state': None
     }
-    ade_list, fde_list, train_ade, train_fde, train_avg_speed_error, val_avg_speed_error, val_msae_list = [], [], [], [], [], [], []
+    val_ade_list, val_fde_list, train_ade, train_fde, train_avg_speed_error, val_avg_speed_error, val_msae_list = [], [], [], [], [], [], []
+    train_ade_list, train_fde_list = [], []
     gen_writer = SummaryWriter("runs/gen")
     dis_writer = SummaryWriter("runs/dis")
 
@@ -153,28 +154,19 @@ def main():
                 for k, v in sorted(metrics_train.items()):
                     print('  [train] {}: {:.3f}'.format(k, v))
 
-                ade_list.append(metrics_val['ade'])
-                fde_list.append(metrics_val['fde'])
+                val_ade_list.append(metrics_val['ade'])
+                val_fde_list.append(metrics_val['fde'])
+
+                train_ade_list.append(metrics_train['ade'])
+                train_fde_list.append(metrics_train['fde'])
                 val_msae_list.append(metrics_val['mean_l2_speed'])
 
-                trainade.add_scalar('ade_loss', metrics_train['ade'], epoch)
-                valade.add_scalar('ade_loss', metrics_val['ade'], epoch)
-
-                trainfde.add_scalar('fde_loss', metrics_train['fde'], epoch)
-                valfde.add_scalar('fde_loss', metrics_val['fde'], epoch)
-
-                trainade.close()
-                valade.close()
-
-                trainfde.close()
-                valfde.close()
-
-                if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list) or metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
+                if metrics_val.get('ade') == min(val_ade_list) or metrics_val['ade'] < min(val_ade_list) or metrics_val.get('fde') == min(val_fde_list) or metrics_val['fde'] < min(val_fde_list):
                     checkpoint['g_best_state'] = generator.state_dict()
-                if metrics_val.get('ade') == min(ade_list) or metrics_val['ade'] < min(ade_list):
+                if metrics_val.get('ade') == min(val_ade_list) or metrics_val['ade'] < min(val_ade_list):
                     print('New low for avg_disp_error')
                     checkpoint['best_g_state'] = generator.state_dict()
-                if metrics_val.get('fde') == min(fde_list) or metrics_val['fde'] < min(fde_list):
+                if metrics_val.get('fde') == min(val_fde_list) or metrics_val['fde'] < min(val_fde_list):
                     print('New low for final_disp_error')
                 if metrics_val.get('mean_l2_speed') == min(val_msae_list) or metrics_val['mean_l2_speed'] < min(val_msae_list):
                     print('New low for Speed regressor model')
@@ -197,6 +189,30 @@ def main():
         print('total_speed_loss', total_speed_loss)
         speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
         speed_regressor_loss_writer.close()
+
+        total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
+        print('total_val_ade_loss', total_val_ade_err)
+
+        total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
+        print('total_val_fde_loss', total_val_fde_err)
+
+        total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
+        print('total_train_ade_loss', total_train_ade_err)
+
+        total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
+        print('total_train_fde_loss', total_train_fde_err)
+
+        trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
+        valade.add_scalar('ade_loss', total_val_ade_err, epoch)
+
+        trainfde.add_scalar('fde_loss', total_train_fde_err, epoch)
+        valfde.add_scalar('fde_loss', total_val_fde_err, epoch)
+
+        trainade.close()
+        valade.close()
+
+        trainfde.close()
+        valfde.close()
 
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):

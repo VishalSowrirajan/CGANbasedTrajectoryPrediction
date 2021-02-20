@@ -105,11 +105,15 @@ class Encoder(nn.Module):
 
     def forward(self, obs_traj, label=None):
         batch = obs_traj.size(1)
-        traj_speed_embedding = self.spatial_embedding(obs_traj.contiguous().view(-1, self.mlp_input_dim))
+        if MULTI_CONDITIONAL_MODEL:
+            embedding_input = torch.cat([obs_traj, label], dim=2)
+        else:
+            embedding_input = obs_traj
+        traj_speed_embedding = self.spatial_embedding(embedding_input.contiguous().view(-1, self.mlp_input_dim))
         obs_traj_embedding = traj_speed_embedding.view(-1, batch, self.embedding_dim)
         state_tuple = self.init_hidden(batch)
         output, state = self.encoder(obs_traj_embedding, state_tuple)
-        final_h = state[0]  # 1, B, 16
+        final_h = state[0]  # 1, B, 16  B - number of agents at timestep t -->
         return final_h
 
 
@@ -169,7 +173,7 @@ class Decoder(nn.Module):
                         curr_label = label[0, :, :]
                 else:
                     if SINGLE_CONDITIONAL_MODEL:
-                        speed = speed_control(pred_ped_speed[id + 1, :, :], seq_start_end)
+                        speed = speed_control(pred_ped_speed[id, :, :], seq_start_end)
                     elif MULTI_CONDITIONAL_MODEL:
                         curr_label = label[0, :, :]
                         speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=curr_label)
@@ -301,7 +305,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
-        if train_or_test == 3:
+        if train_or_test == 4:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()
