@@ -191,6 +191,47 @@ class Decoder(nn.Module):
         return pred_traj_fake_rel
 
 
+class ConditionalPoolingModule(nn.Module):
+    """The pooling module takes the speed of the pedestrians each other approaching into account"""
+
+    def __init__(self, h_dim, mlp_input_dim):
+        super(ConditionalPoolingModule, self).__init__()
+        self.mlp_dim = MLP_DIM
+        self.h_dim = h_dim
+        self.bottleneck_dim = BOTTLENECK_DIM
+        self.embedding_dim = EMBEDDING_DIM
+        self.mlp_input_dim = mlp_input_dim
+
+        mlp_pre_dim = self.embedding_dim + self.h_dim
+        mlp_pre_pool_dims = [mlp_pre_dim, 512, BOTTLENECK_DIM]
+
+        self.pos_embedding = nn.Linear(2, EMBEDDING_DIM)
+        self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
+
+    def forward(self, h_states, seq_start_end, train_or_test, last_pos, label=None):
+        pool_h = []
+        for _, (start, end) in enumerate(seq_start_end):
+            start = start.item()
+            end = end.item()
+            num_ped = end - start
+            curr_hidden_ped = h_states.view(-1, self.h_dim)[start:end]
+            repeat_hstate = curr_hidden_ped.repeat(num_ped, 1).view(num_ped, num_ped, -1)
+
+            feature = last_pos[start:end]
+            curr_end_pos_1 = feature.repeat(num_ped, 1)
+            curr_end_pos_2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, self.mlp_input_dim)
+            social_features = curr_end_pos_1[:, :2] - curr_end_pos_2[:, :2]
+
+            position_feature_embedding = self.pos_embedding(social_features.contiguous().view(-1, 2))
+            pos_mlp_input = torch.cat(
+                [repeat_hstate.view(-1, self.h_dim), position_feature_embedding.view(-1, self.embedding_dim)], dim=1)
+            pos_attn_h = self.mlp_pre_pool(pos_mlp_input)
+            curr_pool_h = pos_attn_h.view(num_ped, num_ped, -1).max(1)[0]
+            pool_h.append(curr_pool_h)
+        pool_h = torch.cat(pool_h, dim=0)
+        return pool_h
+
+
 def speed_control(pred_traj_first_speed, seq_start_end, label=None):
     """This method acts as speed regulator. Using this method, user can add
     speed at one/more frames, stop the agent and so on"""
@@ -258,10 +299,14 @@ class TrajectoryGenerator(nn.Module):
 
         self.encoder = Encoder(h_dim=h_dim, mlp_input_dim=mlp_dim)
         self.decoder = Decoder(h_dim = h_dim, mlp_input_dim=mlp_dim)
+        self.conditionalPoolingModule = ConditionalPoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
 
         self.noise_first_dim = NOISE_DIM[0]
 
-        mlp_decoder_context_dims = [h_dim, MLP_DIM, h_dim - self.noise_first_dim]
+        if POOLING_TYPE:
+            mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
+        else:
+            mlp_decoder_context_dims = [h_dim, MLP_DIM, h_dim - self.noise_first_dim]
 
         self.mlp_decoder_context = make_mlp(mlp_decoder_context_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM,
                                             dropout=DROPOUT)
@@ -285,7 +330,23 @@ class TrajectoryGenerator(nn.Module):
             final_encoder_h = self.encoder(obs_traj_rel, label=obs_label)
         else:
             final_encoder_h = self.encoder(obs_traj_rel, label=None)
-        mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
+        if POOLING_TYPE:
+            if train_or_test == 1:
+                if MULTI_CONDITIONAL_MODEL:
+                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=pred_label[0, :, :])
+                else:
+                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=None)
+                next_speed = simulated_ped_speed
+            else:
+                next_speed = pred_ped_speed[0, :, :]
+            if MULTI_CONDITIONAL_MODEL:
+                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], next_speed, label=pred_label[0, :, :])
+            else:
+                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], next_speed, label=None)
+            mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), sspm], dim=1)
+        else:
+            mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
+
         noise_input = self.mlp_decoder_context(mlp_decoder_context_input)
 
         decoder_h = self.add_noise(noise_input, seq_start_end).unsqueeze(dim=0)

@@ -97,15 +97,6 @@ def main():
     }
     val_ade_list, val_fde_list, train_ade, train_fde, train_avg_speed_error, val_avg_speed_error, val_msae_list = [], [], [], [], [], [], []
     train_ade_list, train_fde_list = [], []
-    gen_writer = SummaryWriter("runs/gen")
-    dis_writer = SummaryWriter("runs/dis")
-
-    speed_regressor_loss_writer = SummaryWriter("runs/speed_regressor_loss")
-
-    trainade = SummaryWriter("runs/trainade")
-    trainfde = SummaryWriter("runs/trainfde")
-    valade = SummaryWriter("runs/valade")
-    valfde = SummaryWriter("runs/valfde")
 
     while epoch < required_epoch:
         gc.collect()
@@ -119,7 +110,7 @@ def main():
                 disc_loss.append(losses_d['D_total_loss'])
                 d_steps_left -= 1
             elif g_steps_left > 0:
-                losses_g = generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g)
+                losses_g = generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g, speed_regressor)
                 speed_regression_loss = speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regressor)
                 losses_g['Speed_Regression_Loss'] = speed_regression_loss['Speed_Regression_Loss']
                 sr_loss.append(speed_regression_loss['Speed_Regression_Loss'])
@@ -128,13 +119,6 @@ def main():
 
             if d_steps_left > 0 or g_steps_left > 0:
                 continue
-
-            #gen_writer.add_scalar('loss', gent_loss[0], epoch)
-            #dis_writer.add_scalar('loss', disc_loss[0], epoch)
-            #gen_writer.close()
-            #dis_writer.close()
-            #disc_loss.clear()
-            #gent_loss.clear()
 
             if t > 0 and t % CHECKPOINT_EVERY == 0:
 
@@ -187,32 +171,6 @@ def main():
                 break
         total_speed_loss = sum(sr_loss) / len(sr_loss)
         print('total_speed_loss', total_speed_loss)
-        speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
-        speed_regressor_loss_writer.close()
-
-        total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
-        print('total_val_ade_loss', total_val_ade_err)
-
-        total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
-        print('total_val_fde_loss', total_val_fde_err)
-
-        total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
-        print('total_train_ade_loss', total_train_ade_err)
-
-        total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
-        print('total_train_fde_loss', total_train_fde_err)
-
-        trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
-        valade.add_scalar('ade_loss', total_val_ade_err, epoch)
-
-        trainfde.add_scalar('fde_loss', total_train_fde_err, epoch)
-        valfde.add_scalar('fde_loss', total_val_fde_err, epoch)
-
-        trainade.close()
-        valade.close()
-
-        trainfde.close()
-        valfde.close()
 
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
@@ -309,7 +267,7 @@ def speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regr
     return losses
 
 
-def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
+def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g, speed_regressor):
     """This step is similar to Social GAN Code"""
     if USE_GPU:
         batch = [tensor.cuda() for tensor in batch]
@@ -329,11 +287,17 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
 
     for _ in range(BEST_K):
         if MULTI_CONDITIONAL_MODEL:
-            generator_out, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+            _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+            fake_ped_speed = speed_regressor(obs_ped_speed, final_enc_h)
+            generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                       pred_traj_gt, 1, fake_ped_speed, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
         else:
-            generator_out, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
+            _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
+            fake_ped_speed = speed_regressor(obs_ped_speed, final_enc_h)
+            generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                       pred_traj_gt, 1, fake_ped_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
         pred_traj_fake_rel = generator_out
         pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
