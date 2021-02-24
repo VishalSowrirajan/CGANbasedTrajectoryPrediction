@@ -4,7 +4,7 @@ PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/FinalCheckpoints50epochs/eth-1.pt'
+CHECKPOINT_NAME = 'Checkpoints/rmse_loss_SR/eth.pt'
 #MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/forecasting_test_v1.1.tar/test_obs\data'
 
 SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
@@ -59,7 +59,7 @@ NUM_LAYERS = 1
 DROPOUT = 0
 NUM_EPOCHS_MULTI_CONDITION = 50
 NUM_EPOCHS_SINGLE_CONDITION = 50
-CHECKPOINT_EVERY = 20
+CHECKPOINT_EVERY = 50
 MLP_DIM = 64
 EMBEDDING_DIM = 16
 BOTTLENECK_DIM = 32
@@ -69,7 +69,7 @@ DECODER_TIMESTEP_POOLING = False
 L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
-POOLING_TYPE = False
+POOLING_TYPE = True
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
@@ -94,12 +94,12 @@ CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
 STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
 
 CONSTANT_SPEED_SINGLE_CONDITION = True
-CS_SINGLE_CONDITION = 0.1  # Constant speed single condition
+CS_SINGLE_CONDITION = 0.8  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0
 
 G_STEPS = 1
-D_STEPS = 2
+D_STEPS = 1
 SR_STEPS = 1
 BEST_K = 10
 PRINT_EVERY = 100
