@@ -31,9 +31,8 @@ class SpeedEncoderDecoder(nn.Module):
         self.h_dim = h_dim
 
         self.speed_decoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
-        self.speed_encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
-        self.spatial_embedding = nn.Linear(1, EMBEDDING_DIM)
-        self.hidden2pos = nn.Linear(h_dim, 1)
+        self.speed_embedding = nn.Linear(1, EMBEDDING_DIM)
+        self.speed_mlp = nn.Linear(h_dim, 1)
 
     def init_hidden(self, batch):
         if USE_GPU:
@@ -45,18 +44,11 @@ class SpeedEncoderDecoder(nn.Module):
 
     def forward(self, obs_speed, final_enc_h, label=None):
         batch = obs_speed.size(1)
-        #speed_embedding = self.spatial_embedding(obs_speed.contiguous().view(-1, 1))
-        #obs_speed_embedding = speed_embedding.view(-1, batch, self.embedding_dim)
-        #state_tuple = self.init_hidden(batch)
-        #output, state = self.speed_encoder(obs_speed_embedding, state_tuple)
-        #final_enc_h = state[0]
-
+        sig_layer = nn.Sigmoid()
         pred_speed_fake = []
         final_enc_h = final_enc_h.view(-1, self.h_dim)
-        next_rel_speed = self.hidden2pos(final_enc_h.view(-1, self.h_dim))
-        next_speed = obs_speed[-1, :, :] + next_rel_speed
-        pred_speed_fake.append(next_speed)
-        decoder_input = self.spatial_embedding(next_rel_speed)
+        last_speed = obs_speed[-1, :, :]
+        decoder_input = self.speed_embedding(last_speed)
         decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
         decoder_h = final_enc_h.unsqueeze(dim=0)  # INITIALIZE THE DECODER HIDDEN STATE
@@ -69,17 +61,17 @@ class SpeedEncoderDecoder(nn.Module):
 
         for id in range(PRED_LEN):
             output, state_tuple = self.speed_decoder(decoder_input, state_tuple)
-            next_rel_speed = self.hidden2pos(output.view(-1, self.h_dim))
-            next_frame_speed = next_speed + next_rel_speed.view(-1, 1)
-            decoder_input = next_rel_speed.view(-1, 1)
-            decoder_input = self.spatial_embedding(decoder_input)
+            next_speed = self.speed_mlp(output.view(-1, self.h_dim))
+            next_frame_speed = sig_layer(next_speed)
+            decoder_input = next_frame_speed.view(-1, 1)
+            decoder_input = self.speed_embedding(decoder_input)
             decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
             pred_speed_fake.append(next_frame_speed)
-            next_speed = next_frame_speed
+            #next_speed = next_frame_speed
 
         pred_speed_fake = torch.stack(pred_speed_fake, dim=0)
-        return pred_speed_fake[:PRED_LEN, :, :]
+        return pred_speed_fake
 
 
 class Encoder(nn.Module):
@@ -140,11 +132,6 @@ class Decoder(nn.Module):
         pred_traj_fake_rel = []
         if train_or_test == 0:
             if MULTI_CONDITIONAL_MODEL:
-                last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :], label[0, :, :]], dim=1)
-            else:
-                last_pos_speed = torch.cat([last_pos_rel, pred_ped_speed[0, :, :]], dim=1)
-        elif train_or_test == 1:  # USED FOR PREDICTION PURPOSE
-            if MULTI_CONDITIONAL_MODEL:
                 last_pos_speed = torch.cat([last_pos_rel, fake_ped_speed[0, :, :], label[0, :, :]], dim=1)
             else:
                 last_pos_speed = torch.cat([last_pos_rel, fake_ped_speed[0, :, :]], dim=1)
@@ -164,10 +151,6 @@ class Decoder(nn.Module):
             curr_pos = rel_pos + last_pos
             if id + 1 != PRED_LEN:
                 if train_or_test == 0:
-                    speed = pred_ped_speed[id + 1, :, :]
-                    if MULTI_CONDITIONAL_MODEL:
-                        curr_label = label[0, :, :]
-                elif train_or_test == 1:
                     speed = fake_ped_speed[id + 1, :, :]
                     if MULTI_CONDITIONAL_MODEL:
                         curr_label = label[0, :, :]
@@ -219,8 +202,8 @@ class ConditionalPoolingModule(nn.Module):
 
             feature = last_pos[start:end]
             curr_end_pos_1 = feature.repeat(num_ped, 1)
-            curr_end_pos_2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, self.mlp_input_dim)
-            social_features = curr_end_pos_1[:, :2] - curr_end_pos_2[:, :2]
+            curr_end_pos_2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, 2)
+            social_features = curr_end_pos_1 - curr_end_pos_2
 
             position_feature_embedding = self.pos_embedding(social_features.contiguous().view(-1, 2))
             pos_mlp_input = torch.cat(
@@ -298,8 +281,9 @@ class TrajectoryGenerator(nn.Module):
         self.bottleneck_dim = BOTTLENECK_DIM
 
         self.encoder = Encoder(h_dim=h_dim, mlp_input_dim=mlp_dim)
-        self.decoder = Decoder(h_dim = h_dim, mlp_input_dim=mlp_dim)
+        self.decoder = Decoder(h_dim=h_dim, mlp_input_dim=mlp_dim)
         self.conditionalPoolingModule = ConditionalPoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
+        self.speed_regressor = SpeedEncoderDecoder(h_dim=h_dim)
 
         self.noise_first_dim = NOISE_DIM[0]
 
@@ -310,6 +294,9 @@ class TrajectoryGenerator(nn.Module):
 
         self.mlp_decoder_context = make_mlp(mlp_decoder_context_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM,
                                             dropout=DROPOUT)
+
+        sr_input_dim = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim]
+        self.sr_input = make_mlp(sr_input_dim, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
     def add_noise(self, _input, seq_start_end):
         noise_shape = (seq_start_end.size(0),) + self.noise_dim
@@ -324,29 +311,23 @@ class TrajectoryGenerator(nn.Module):
         decoder_h = torch.cat(_list, dim=0)
         return decoder_h
 
-    def forward(self, obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj, train_or_test, fake_ped_speed, obs_obj_rel_speed, obs_label=None, pred_label=None, user_noise=None):
+    def forward(self, obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj, train_or_test, obs_obj_rel_speed, obs_label=None, pred_label=None, user_noise=None):
         batch = obs_traj_rel.size(1)
         if MULTI_CONDITIONAL_MODEL:
             final_encoder_h = self.encoder(obs_traj_rel, label=obs_label)
         else:
             final_encoder_h = self.encoder(obs_traj_rel, label=None)
         if POOLING_TYPE:
-            if train_or_test == 1:
-                if MULTI_CONDITIONAL_MODEL:
-                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=pred_label[0, :, :])
-                else:
-                    simulated_ped_speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=None)
-                next_speed = simulated_ped_speed
-            else:
-                next_speed = pred_ped_speed[0, :, :]
             if MULTI_CONDITIONAL_MODEL:
-                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], next_speed, label=pred_label[0, :, :])
+                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], label=pred_label[0, :, :])
             else:
-                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], next_speed, label=None)
+                sspm = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :], label=None)
             mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), sspm], dim=1)
         else:
             mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
 
+        sr_input = self.sr_input(mlp_decoder_context_input)
+        fake_speed = self.speed_regressor(obs_ped_speed, sr_input)
         noise_input = self.mlp_decoder_context(mlp_decoder_context_input)
 
         decoder_h = self.add_noise(noise_input, seq_start_end).unsqueeze(dim=0)
@@ -359,10 +340,10 @@ class TrajectoryGenerator(nn.Module):
 
         if MULTI_CONDITIONAL_MODEL:
             decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, pred_ped_speed,
-            train_or_test, fake_ped_speed, label=pred_label)
+            train_or_test, fake_speed, label=pred_label)
         else:
             decoder_out = self.decoder(obs_traj[-1], obs_traj_rel[-1], state_tuple, seq_start_end, pred_ped_speed,
-            train_or_test, fake_ped_speed)
+            train_or_test, fake_speed)
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
@@ -380,7 +361,7 @@ class TrajectoryGenerator(nn.Module):
                 print(pred_test_traj)
                 #print(pred_traj[:, start:end, :])
                 simulated_trajectories.append(pred_test_traj)
-        return pred_traj_fake_rel, decoder_h.view(-1, self.h_dim)
+        return pred_traj_fake_rel, fake_speed
 
 
 class EncoderDiscriminator(nn.Module):

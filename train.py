@@ -111,9 +111,9 @@ def main():
                 d_steps_left -= 1
             elif g_steps_left > 0:
                 losses_g = generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g, speed_regressor)
-                speed_regression_loss = speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regressor)
-                losses_g['Speed_Regression_Loss'] = speed_regression_loss['Speed_Regression_Loss']
-                sr_loss.append(speed_regression_loss['Speed_Regression_Loss'])
+                #speed_regression_loss = speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regressor)
+                #losses_g['Speed_Regression_Loss'] = speed_regression_loss['Speed_Regression_Loss']
+                sr_loss.append(losses_g['Speed_Regression_Loss'])
                 gent_loss.append(losses_g['G_discriminator_loss'])
                 g_steps_left -= 1
 
@@ -183,11 +183,11 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
         (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label,
          obs_obj_rel_speed) = batch
         generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+                                  pred_traj_gt, TRAIN_METRIC, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
     else:
         (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_obj_rel_speed) = batch
         generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
+                                  pred_traj_gt, TRAIN_METRIC, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
@@ -281,23 +281,17 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g, spee
 
     losses = {}
     loss = torch.zeros(1).to(pred_traj_gt)
-    g_l2_loss_rel = []
+    g_l2_loss_rel, speed_loss = [], []
 
     loss_mask = loss_mask[:, OBS_LEN:]
 
     for _ in range(BEST_K):
         if MULTI_CONDITIONAL_MODEL:
-            _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
-            fake_ped_speed = speed_regressor(obs_ped_speed, final_enc_h)
-            generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                       pred_traj_gt, 1, fake_ped_speed, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+            generator_out, fake_ped_speed = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                       pred_traj_gt, TRAIN_METRIC, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
         else:
-            _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
-            fake_ped_speed = speed_regressor(obs_ped_speed, final_enc_h)
-            generator_out, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                       pred_traj_gt, 1, fake_ped_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
+            generator_out, fake_ped_speed = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                       pred_traj_gt, TRAIN_METRIC, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
         pred_traj_fake_rel = generator_out
         pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
@@ -319,6 +313,24 @@ def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g, spee
             g_l2_loss_sum_rel += _g_l2_loss_rel
         losses['G_l2_loss_rel'] = g_l2_loss_sum_rel.item()
         loss += g_l2_loss_sum_rel
+
+        speed_loss.append(L2_LOSS_WEIGHT * mae_loss(
+                fake_ped_speed,
+                pred_ped_speed,
+                mode='raw',
+                speed_reg='speed_regressor'))
+
+        total_speed_loss = torch.zeros(1).to(pred_ped_speed)
+        speed_loss = torch.stack(speed_loss, dim=1)
+
+        for start, end in seq_start_end.data:
+            _speed_loss = speed_loss[start:end]
+            _speed_loss = torch.sum(_speed_loss, dim=0)
+            _speed_loss = torch.min(_speed_loss) / torch.sum(loss_mask[start:end])
+            total_speed_loss += _speed_loss
+        losses['Speed_Regression_Loss'] = total_speed_loss.item()
+        loss += total_speed_loss
+
     traj_fake = torch.cat([obs_traj, pred_traj_fake], dim=0)
     traj_fake_rel = torch.cat([obs_traj_rel, pred_traj_fake_rel], dim=0)
     ped_speed = torch.cat([obs_ped_speed, pred_ped_speed], dim=0)
@@ -362,13 +374,11 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn, speed_regressor)
                  pred_ped_speed, obs_obj_rel_speed) = batch
 
             if MULTI_CONDITIONAL_MODEL:
-                pred_traj_fake_rel, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+                pred_traj_fake_rel, fake_ped_speed = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                  pred_traj_gt, TRAIN_METRIC, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
             else:
-                pred_traj_fake_rel, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                      pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
-
-            fake_ped_speed = speed_regressor(obs_ped_speed, final_enc_h)
+                pred_traj_fake_rel, fake_ped_speed = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                      pred_traj_gt, TRAIN_METRIC, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
             pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
             loss_mask = loss_mask[:, OBS_LEN:]
