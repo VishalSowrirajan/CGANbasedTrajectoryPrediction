@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from constants import *
-from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
 
 
 from trajectories import data_loader
@@ -97,15 +97,15 @@ def main():
     }
     val_ade_list, val_fde_list, train_ade, train_fde, train_avg_speed_error, val_avg_speed_error, val_msae_list = [], [], [], [], [], [], []
     train_ade_list, train_fde_list = [], []
-    gen_writer = SummaryWriter("runs/gen")
-    dis_writer = SummaryWriter("runs/dis")
+    #gen_writer = SummaryWriter("runs/gen")
+    #dis_writer = SummaryWriter("runs/dis")
 
-    speed_regressor_loss_writer = SummaryWriter("runs/speed_regressor_loss")
+    #speed_regressor_loss_writer = SummaryWriter("runs/speed_regressor_loss")
 
-    trainade = SummaryWriter("runs/trainade")
-    trainfde = SummaryWriter("runs/trainfde")
-    valade = SummaryWriter("runs/valade")
-    valfde = SummaryWriter("runs/valfde")
+    #trainade = SummaryWriter("runs/trainade")
+    #trainfde = SummaryWriter("runs/trainfde")
+    #valade = SummaryWriter("runs/valade")
+    #valfde = SummaryWriter("runs/valfde")
 
     while epoch < required_epoch:
         gc.collect()
@@ -185,34 +185,34 @@ def main():
             g_steps_left = G_STEPS
             if t >= NUM_ITERATIONS:
                 break
-        total_speed_loss = sum(sr_loss) / len(sr_loss)
-        print('total_speed_loss', total_speed_loss)
-        speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
-        speed_regressor_loss_writer.close()
+        #total_speed_loss = sum(sr_loss) / len(sr_loss)
+        #print('total_speed_loss', total_speed_loss)
+        #speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
+        #speed_regressor_loss_writer.close()
 
-        total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
-        print('total_val_ade_loss', total_val_ade_err)
+        #total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
+        #print('total_val_ade_loss', total_val_ade_err)
 
-        total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
-        print('total_val_fde_loss', total_val_fde_err)
+        #total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
+        #print('total_val_fde_loss', total_val_fde_err)
 
-        total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
-        print('total_train_ade_loss', total_train_ade_err)
+        #total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
+        #print('total_train_ade_loss', total_train_ade_err)
 
-        total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
-        print('total_train_fde_loss', total_train_fde_err)
+        #total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
+        #print('total_train_fde_loss', total_train_fde_err)
 
-        trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
-        valade.add_scalar('ade_loss', total_val_ade_err, epoch)
+        #trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
+        #valade.add_scalar('ade_loss', total_val_ade_err, epoch)
 
-        trainfde.add_scalar('fde_loss', total_train_fde_err, epoch)
-        valfde.add_scalar('fde_loss', total_val_fde_err, epoch)
+        #trainfde.add_scalar('fde_loss', total_train_fde_err, epoch)
+        #valfde.add_scalar('fde_loss', total_val_fde_err, epoch)
 
-        trainade.close()
-        valade.close()
+        #trainade.close()
+        #valade.close()
 
-        trainfde.close()
-        valfde.close()
+        #trainfde.close()
+        #valfde.close()
 
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):

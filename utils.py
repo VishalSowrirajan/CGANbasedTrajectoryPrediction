@@ -50,10 +50,7 @@ def displacement_error(pred_traj, pred_traj_gt, consider_ped=None, mode='sum'):
     seq_len, _, _ = pred_traj.size()
     loss = pred_traj_gt.permute(1, 0, 2) - pred_traj.permute(1, 0, 2)
     loss = loss ** 2
-    if consider_ped is not None:
-        loss = torch.sqrt(loss.sum(dim=2)).sum(dim=1) * consider_ped
-    else:
-        loss = torch.sqrt(loss.sum(dim=2)).sum(dim=1)
+    loss = torch.sqrt(loss.sum(dim=2)).sum(dim=1)
     if mode == 'sum':
         return torch.sum(loss)
     elif mode == 'raw':

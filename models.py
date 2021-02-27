@@ -31,9 +31,8 @@ class SpeedEncoderDecoder(nn.Module):
         self.h_dim = h_dim
 
         self.speed_decoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
-        self.speed_encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
-        self.spatial_embedding = nn.Linear(1, EMBEDDING_DIM)
-        self.hidden2pos = nn.Linear(h_dim, 1)
+        self.speed_mlp = nn.Linear(h_dim, 1)
+        self.speed_embedding = nn.Linear(1, EMBEDDING_DIM)
 
     def init_hidden(self, batch):
         if USE_GPU:
@@ -42,21 +41,13 @@ class SpeedEncoderDecoder(nn.Module):
             c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim), torch.zeros(self.num_layers, batch, self.h_dim)
         return c_s, r_s
 
-
     def forward(self, obs_speed, final_enc_h, label=None):
+        sig_layer = nn.Sigmoid()
         batch = obs_speed.size(1)
-        #speed_embedding = self.spatial_embedding(obs_speed.contiguous().view(-1, 1))
-        #obs_speed_embedding = speed_embedding.view(-1, batch, self.embedding_dim)
-        #state_tuple = self.init_hidden(batch)
-        #output, state = self.speed_encoder(obs_speed_embedding, state_tuple)
-        #final_enc_h = state[0]
-
         pred_speed_fake = []
         final_enc_h = final_enc_h.view(-1, self.h_dim)
-        next_rel_speed = self.hidden2pos(final_enc_h.view(-1, self.h_dim))
-        next_speed = obs_speed[-1, :, :] + next_rel_speed
-        pred_speed_fake.append(next_speed)
-        decoder_input = self.spatial_embedding(next_rel_speed)
+        next_speed = obs_speed[-1, :, :]
+        decoder_input = self.speed_embedding(next_speed.view(-1, 1))
         decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
         decoder_h = final_enc_h.unsqueeze(dim=0)  # INITIALIZE THE DECODER HIDDEN STATE
@@ -65,21 +56,19 @@ class SpeedEncoderDecoder(nn.Module):
         else:
             decoder_c = torch.zeros(self.num_layers, batch, self.h_dim)
 
-        state_tuple = (decoder_h, decoder_c) # INITIALIZE THE STATE TUPLES
+        state_tuple = (decoder_h, decoder_c)  # INITIALIZE THE STATE TUPLES
 
         for id in range(PRED_LEN):
             output, state_tuple = self.speed_decoder(decoder_input, state_tuple)
-            next_rel_speed = self.hidden2pos(output.view(-1, self.h_dim))
-            next_frame_speed = next_speed + next_rel_speed.view(-1, 1)
-            decoder_input = next_rel_speed.view(-1, 1)
-            decoder_input = self.spatial_embedding(decoder_input)
+            next_dec_speed = self.speed_mlp(output.view(-1, self.h_dim))
+            next_speed = sig_layer(next_dec_speed.view(-1, 1))
+            decoder_input = self.speed_embedding(next_speed.view(-1, 1))
             decoder_input = decoder_input.view(1, batch, self.embedding_dim)
 
-            pred_speed_fake.append(next_frame_speed)
-            next_speed = next_frame_speed
+            pred_speed_fake.append(next_speed.view(-1, 1))
 
         pred_speed_fake = torch.stack(pred_speed_fake, dim=0)
-        return pred_speed_fake[:PRED_LEN, :, :]
+        return pred_speed_fake
 
 
 class Encoder(nn.Module):
@@ -90,11 +79,11 @@ class Encoder(nn.Module):
         self.h_dim = h_dim
         self.embedding_dim = EMBEDDING_DIM
         self.num_layers = NUM_LAYERS
-        self.mlp_input_dim = 2
+        self.mlp_input_dim = mlp_input_dim
 
         self.encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
 
-        self.spatial_embedding = nn.Linear(2, EMBEDDING_DIM)
+        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
 
     def init_hidden(self, batch):
         if USE_GPU:
@@ -103,17 +92,17 @@ class Encoder(nn.Module):
             c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim), torch.zeros(self.num_layers, batch, self.h_dim)
         return c_s, r_s
 
-    def forward(self, obs_traj, label=None):
+    def forward(self, obs_traj, obs_ped_speed, label=None):
         batch = obs_traj.size(1)
         if MULTI_CONDITIONAL_MODEL:
-            embedding_input = torch.cat([obs_traj, label], dim=2)
+            embedding_input = torch.cat([obs_traj, obs_ped_speed, label], dim=2)
         else:
-            embedding_input = obs_traj
+            embedding_input = torch.cat([obs_traj, obs_ped_speed], dim=2)
         traj_speed_embedding = self.spatial_embedding(embedding_input.contiguous().view(-1, self.mlp_input_dim))
         obs_traj_embedding = traj_speed_embedding.view(-1, batch, self.embedding_dim)
         state_tuple = self.init_hidden(batch)
         output, state = self.encoder(obs_traj_embedding, state_tuple)
-        final_h = state[0]  # 1, B, 16  B - number of agents at timestep t -->
+        final_h = state[0]
         return final_h
 
 
@@ -282,9 +271,9 @@ class TrajectoryGenerator(nn.Module):
     def forward(self, obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj, train_or_test, fake_ped_speed, obs_obj_rel_speed, obs_label=None, pred_label=None, user_noise=None):
         batch = obs_traj_rel.size(1)
         if MULTI_CONDITIONAL_MODEL:
-            final_encoder_h = self.encoder(obs_traj_rel, label=obs_label)
+            final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=obs_label)
         else:
-            final_encoder_h = self.encoder(obs_traj_rel, label=None)
+            final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=None)
         mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
         noise_input = self.mlp_decoder_context(mlp_decoder_context_input)
 
@@ -305,7 +294,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT OF ALL SEQUENCES TO TEST THE SPEED AND TRAJECTORIES
-        if train_or_test == 4:
+        if train_or_test == 3:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()
@@ -322,46 +311,12 @@ class TrajectoryGenerator(nn.Module):
         return pred_traj_fake_rel, decoder_h.view(-1, self.h_dim)
 
 
-class EncoderDiscriminator(nn.Module):
-    def __init__(self, h_dim, mlp_input_dim):
-        super(EncoderDiscriminator, self).__init__()
-
-        self.mlp_dim = MLP_DIM
-        self.h_dim = h_dim
-        self.embedding_dim = EMBEDDING_DIM
-        self.num_layers = NUM_LAYERS
-        self.mlp_input_dim = mlp_input_dim
-
-        self.encoder = nn.LSTM(EMBEDDING_DIM, h_dim, NUM_LAYERS, dropout=DROPOUT)
-
-        self.spatial_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
-
-    def init_hidden(self, batch):
-        if USE_GPU:
-            c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim).cuda(), torch.zeros(self.num_layers, batch, self.h_dim).cuda()
-        else:
-            c_s, r_s = torch.zeros(self.num_layers, batch, self.h_dim), torch.zeros(self.num_layers, batch, self.h_dim)
-        return c_s, r_s
-
-    def forward(self, obs_traj, obs_ped_speed, label=None):
-        batch = obs_traj.size(1)
-        if MULTI_CONDITIONAL_MODEL:
-            embedding_input = torch.cat([obs_traj, obs_ped_speed, label], dim=2)
-        else:
-            embedding_input = torch.cat([obs_traj, obs_ped_speed], dim=2)
-        traj_speed_embedding = self.spatial_embedding(embedding_input.contiguous().view(-1, self.mlp_input_dim))
-        obs_traj_embedding = traj_speed_embedding.view(-1, batch, self.embedding_dim)
-        state_tuple = self.init_hidden(batch)
-        output, state = self.encoder(obs_traj_embedding, state_tuple)
-        final_h = state[0]
-        return final_h
-
 
 class TrajectoryDiscriminator(nn.Module):
     def __init__(self, h_dim, mlp_dim):
         super(TrajectoryDiscriminator, self).__init__()
 
-        self.encoder = EncoderDiscriminator(h_dim=h_dim, mlp_input_dim=mlp_dim)
+        self.encoder = Encoder(h_dim, mlp_input_dim=mlp_dim)
 
         real_classifier_dims = [h_dim, MLP_DIM, 1]
         self.real_classifier = make_mlp(real_classifier_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)

@@ -6,8 +6,8 @@ from utils import get_dataset_name
 
 def get_traj(trajectories, sequences, labels=None):
     print("Enter the sequence you want to visualize from:", sequences)
-    seq_start = int(input("Enter the sequence start: "))
-    seq_end = int(input("Enter the sequence end:"))
+    seq_start = int(input("Enter the agent id: "))
+    seq_end = int(input("Enter the next-agent:"))
     positions = trajectories[:, seq_start:seq_end, :]
     if MULTI_CONDITIONAL_MODEL:
         label = labels[:, seq_start:seq_end, :]
