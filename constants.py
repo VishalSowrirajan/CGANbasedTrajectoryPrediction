@@ -1,15 +1,14 @@
 # DATASET OPTIONS
 OBS_LEN = 8
-PRED_LEN = 8
+PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
-MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test2'
-CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/8pred/zara2.pt'
-#MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/forecasting_test_v1.1.tar/test_obs\data'
+MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
+CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/With_PM/eth.pt'
 
-SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/zara2/train'
-SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/zara2/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara2/test'
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = True  # For salcingle condition
@@ -68,7 +67,7 @@ NOISE_DIM = (8, )
 L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
-POOLING_TYPE = False
+POOLING_TYPE = True
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS

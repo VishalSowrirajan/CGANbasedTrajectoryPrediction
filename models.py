@@ -194,7 +194,7 @@ class PoolingModule(nn.Module):
         mlp_pre_dim = self.embedding_dim + self.h_dim
         mlp_pre_pool_dims = [mlp_pre_dim, 512, BOTTLENECK_DIM]
 
-        self.pos_embedding = nn.Linear(mlp_input_dim, EMBEDDING_DIM)
+        self.pos_embedding = nn.Linear(2, EMBEDDING_DIM)
         self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
 
     def forward(self, h_states, seq_start_end, train_or_test, last_pos, label=None):
