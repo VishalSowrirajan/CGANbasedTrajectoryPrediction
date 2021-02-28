@@ -227,13 +227,19 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
         start = start.item()
         end = end.item()
         if MULTI_CONDITIONAL_MODEL:
+            av_tensor = [1, 0, 0]
+            av = torch.FloatTensor(av_tensor)
+            other_tensor = [0, 1, 0]
+            other = torch.FloatTensor(other_tensor)
+            agent_tensor = [0, 0, 1]
+            agent = torch.FloatTensor(agent_tensor)
             if DIFFERENT_SPEED_MULTI_CONDITION:
                 for a, b in zip(range(start, end), label):
-                    if torch.eq(b, 0.1):
+                    if torch.all(torch.eq(b, av)):
                         pred_traj_first_speed[a] = sigmoid(AV_SPEED * AV_MAX_SPEED)
-                    elif torch.eq(b, 0.2):
+                    elif torch.all(torch.eq(b, other)):
                         pred_traj_first_speed[a] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
-                    elif torch.eq(b, 0.3):
+                    elif torch.all(torch.eq(b, agent)):
                         pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
             elif CONSTANT_SPEED_MULTI_CONDITION:
                 # To make all pedestrians travel at same and constant speed throughout

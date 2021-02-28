@@ -3,16 +3,16 @@ OBS_LEN = 8
 PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
-MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test'
-CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/With_PM/eth.pt'
+MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test2'
+CHECKPOINT_NAME = 'Checkpoints/one_hot_encoding_label_50epochs.pt'
 
 SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
 SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
 SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
-SINGLE_CONDITIONAL_MODEL = True  # For salcingle condition
-MULTI_CONDITIONAL_MODEL = False  # For multi condition
+SINGLE_CONDITIONAL_MODEL = False  # For salcingle condition
+MULTI_CONDITIONAL_MODEL = True  # For multi condition
 MODEL_TYPE = 0  # 0 for prediction and 1 for simulation
 
 # MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
@@ -49,7 +49,7 @@ H_DIM_DISCRIMINATOR_MULTI_CONDITION = 64
 H_DIM_GENERATOR_SINGLE_CONDITION = 32
 H_DIM_DISCRIMINATOR_SINGLE_CONDITION = 64
 
-MLP_INPUT_DIM_MULTI_CONDITION = 4
+MLP_INPUT_DIM_MULTI_CONDITION = 6
 MLP_INPUT_DIM_SINGLE_CONDITION = 3
 
 # HYPER PARAMETERS OPTIONS
@@ -67,11 +67,11 @@ NOISE_DIM = (8, )
 L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
-POOLING_TYPE = True
+POOLING_TYPE = False
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
-TEST_METRIC = 1  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
+TEST_METRIC = 2  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
 
@@ -81,7 +81,7 @@ VERIFY_OUTPUT_SPEED = 1
 DIFFERENT_SPEED_MULTI_CONDITION = True
 AV_SPEED = 0.7
 AGENT_SPEED = 0.5
-OTHER_SPEED = 0.3
+OTHER_SPEED = 0.8
 
 CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
 CS_MULTI_CONDITION = 0.2  # Constant speed multi condition

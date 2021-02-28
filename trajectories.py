@@ -167,7 +167,7 @@ class TrajectoryDataset(Dataset):
                 curr_seq_rel_speed = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
                 curr_seq = np.zeros((len(obj_in_curr_seq), 2, SEQ_LEN))
                 _curr_obj_abs_speed = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
-                _curr_obj_label = np.zeros((len(obj_in_curr_seq), SEQ_LEN))
+                _curr_obj_label = np.zeros((len(obj_in_curr_seq), 3, SEQ_LEN))
                 num_obj_considered = 0
 
                 for _, obj_id in enumerate(obj_in_curr_seq):
@@ -205,14 +205,17 @@ class TrajectoryDataset(Dataset):
                     _idx = num_obj_considered
 
                     if MULTI_CONDITIONAL_MODEL:
+                        emb_label = np.zeros(3, 'uint8')
                         if label == 'AV':
-                            embedding_label = 0.1
+                            emb_label[0] = 1
                         elif label == 'OTHERS':
-                            embedding_label = 0.2
+                            emb_label[1] = 1
                         elif label == 'AGENT':
-                            embedding_label = 0.3
+                            emb_label[2] = 1
                         curr_obj_seq = np.transpose(curr_obj_seq[:, 3:5])
-                        _curr_obj_label[_idx, pad_front:pad_end] = embedding_label
+                        emb_label = np.repeat(emb_label, SEQ_LEN).reshape(3, -1)
+                        _curr_obj_label[_idx, :, pad_front:pad_end] = emb_label
+
                     else:
                         curr_obj_seq = np.transpose(curr_obj_seq[:, 2:])
                     curr_obj_seq = curr_obj_seq.astype(float)
@@ -269,8 +272,8 @@ class TrajectoryDataset(Dataset):
         self.loss_mask = torch.from_numpy(loss_mask_list).type(torch.float)
 
         if MULTI_CONDITIONAL_MODEL:
-            self.obs_obj_label = torch.from_numpy(obj_label[:, :OBS_LEN]).unsqueeze(dim=1).type(torch.float)
-            self.pred_obj_label = torch.from_numpy(obj_label[:, OBS_LEN:]).unsqueeze(dim=1).type(torch.float)
+            self.obs_obj_label = torch.from_numpy(obj_label[:, :, :OBS_LEN]).type(torch.float)
+            self.pred_obj_label = torch.from_numpy(obj_label[:, :, OBS_LEN:]).type(torch.float)
 
         cum_start_idx = [0] + np.cumsum(num_obj_in_seq).tolist()
         self.seq_start_end = [
