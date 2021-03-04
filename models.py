@@ -162,7 +162,7 @@ class Decoder(nn.Module):
                         curr_label = label[0, :, :]
                 else:
                     if SINGLE_CONDITIONAL_MODEL:
-                        speed = speed_control(pred_ped_speed[id, :, :], seq_start_end)
+                        speed = speed_control(pred_ped_speed[id, :, :], seq_start_end, id=id+1)
                     elif MULTI_CONDITIONAL_MODEL:
                         curr_label = label[0, :, :]
                         speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=curr_label)
@@ -220,7 +220,7 @@ class PoolingModule(nn.Module):
         return pool_h
 
 
-def speed_control(pred_traj_first_speed, seq_start_end, label=None):
+def speed_control(pred_traj_first_speed, seq_start_end, label=None, id=None):
     """This method acts as speed regulator. Using this method, user can add
     speed at one/more frames, stop the agent and so on"""
     for _, (start, end) in enumerate(seq_start_end):
@@ -272,6 +272,15 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None):
                 # To stop all pedestrians
                 for a in range(start, end):
                     pred_traj_first_speed[a] = sigmoid(0)
+            elif ADD_SPEED_PARTICULAR_FRAME and len(FRAMES_TO_ADD_SPEED) > 0:
+                for a in range(start, end):
+                    # Add speed to particular frame for all pedestrian
+                    sorted_frames = FRAMES_TO_ADD_SPEED
+                    for frames in sorted_frames:
+                        if id == frames:
+                            pred_traj_first_speed[a] = sigmoid(ETH_MAX_SPEED * MAX_SPEED)
+                        else:
+                            pred_traj_first_speed[a] = pred_traj_first_speed[a]
 
     return pred_traj_first_speed.view(-1, 1)
 

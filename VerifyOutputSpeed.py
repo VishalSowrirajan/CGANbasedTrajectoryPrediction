@@ -84,5 +84,5 @@ def verify_speed(traj, sequences, labels=None):
     if MULTI_CONDITIONAL_MODEL:
         inverse_sigmoid(speed, labels=label)
     else:
-        maxspeed= get_max_speed(dataset_name)
+        maxspeed= 2
         inverse_sigmoid(speed, max_speed=maxspeed)
