@@ -4,13 +4,13 @@ PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 #MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test111'
-CHECKPOINT_NAME = 'Checkpoints/Aggregation_try/zara1.pt'
+CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/hotel.pt'
 #MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/forecasting_test_v1.1.tar/test_obs\data'
 
 
 SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/zara1/train'
 SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/zara1/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara1/test'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/hotel/Plotting/granny'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = True  # For salcingle condition
@@ -70,11 +70,12 @@ L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
 POOLING_TYPE = False
-AGGREGATION_TYPE = True
+AGGREGATION_TYPE = False
+ATTENTION_TYPE = True
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
-TEST_METRIC = 1  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
+TEST_METRIC = 2  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
 
@@ -94,12 +95,12 @@ CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
 # Change any one of the below flag to True
 STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
 
-ADD_SPEED_PARTICULAR_FRAME = True  # FRAMES_TO_ADD_SPEED flag will be active only if ADD_SPEED_PARTICULAR_FRAME is True
+ADD_SPEED_PARTICULAR_FRAME = False  # FRAMES_TO_ADD_SPEED flag will be active only if ADD_SPEED_PARTICULAR_FRAME is True
 FRAMES_TO_ADD_SPEED = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]  # Provide a value between 0 to length of (predicted traj-1)
 MAX_SPEED = 0.9
 
-CONSTANT_SPEED_SINGLE_CONDITION = False
-CS_SINGLE_CONDITION = 0.0  # Constant speed single condition
+CONSTANT_SPEED_SINGLE_CONDITION = True
+CS_SINGLE_CONDITION = 0.8  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0
 MAX_CONSIDERED_PED = 5

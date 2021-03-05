@@ -14,15 +14,15 @@ xSpeed03 = np.asarray([198, 226, 251, 276, 299])
 ySpeed03 = np.asarray([424, 422, 419, 416, 411])
 
 
-plt.plot(xSpeed01, ySpeed01, zorder=1, linewidth=2, linestyle='--', color='green', label='Fake_Speed')
-plt.plot(xSpeed02, ySpeed02, zorder=1, linewidth=2, linestyle='--', color='green')
-plt.plot(xSpeed03, ySpeed03, zorder=1, linewidth=2, linestyle='--', color='green')
+plt.plot(xSpeed01, ySpeed01, zorder=1, linewidth=3, linestyle='--', color='purple', label='Predicted_Speed')
+plt.plot(xSpeed02, ySpeed02, zorder=1, linewidth=3, linestyle='--', color='purple')
+plt.plot(xSpeed03, ySpeed03, zorder=1, linewidth=3, linestyle='--', color='purple')
 
-plt.plot(xSpeed01[-1], ySpeed01[-1], zorder=1, marker='<', color='green')
-plt.plot(xSpeed02[-1], ySpeed02[-1], zorder=1, marker='>', color='green')
-plt.plot(xSpeed03[-1], ySpeed03[-1], zorder=1, marker='>', color='green')
+plt.plot(xSpeed01[-1], ySpeed01[-1], zorder=1, marker='<', color='purple')
+plt.plot(xSpeed02[-1], ySpeed02[-1], zorder=1, marker='>', color='purple')
+plt.plot(xSpeed03[-1], ySpeed03[-1], zorder=1, marker='>', color='purple')
 
-plt.legend()
+plt.legend(loc='center right')
 plt.xticks([])
 plt.yticks([])
 ext = [0, 576, 0.00, 720]

@@ -96,9 +96,12 @@ def evaluate(loader, generator, num_samples, speed_regressor):
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
                 traj_op.append(pred_traj_fake.unsqueeze(dim=0))
                 traj_obs.append(obs_traj.unsqueeze(dim=0))
+                print(pred_traj_fake)
+                print('gt', pred_traj_gt)
 
             best_traj, min_ade_error = evaluate_helper(torch.stack(ade, dim=1), torch.cat(traj_op, dim=0),
                                                        seq_start_end)
+            print('best', best_traj)
             staked_obs = torch.cat(traj_obs, dim=0)
             obs = staked_obs[0]
             observed_traj.append(obs)
@@ -170,7 +173,7 @@ def main():
         num_samples = 20
     else:
         num_samples = NUM_SAMPLES
-    for _ in range(10):
+    for _ in range(1):
         ade, fde = evaluate(loader, generator, NUM_SAMPLES, speed_regressor)
         print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))
 
