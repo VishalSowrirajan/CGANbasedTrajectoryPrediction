@@ -245,6 +245,62 @@ class AggregationModule(nn.Module):
             end = end.item()
             num_ped = end - start
             curr_hidden_ped = h_states.view(-1, self.h_dim)[start:end]
+            feature = last_pos[start:end]
+            curr_end_pos_1 = feature.repeat(num_ped, 1)
+            curr_end_pos_2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, 2)
+            social_features = curr_end_pos_1[:, :2] - curr_end_pos_2[:, :2]
+            social_features = social_features.view(num_ped, num_ped, 2)
+            dist = squareform(pdist(feature, metric="euclidean"))
+            idx = np.argsort(dist)
+            req_h_states = []
+            for ids, curr_features in zip(idx, social_features.view(num_ped, num_ped, 2)):
+                req_ids = torch.from_numpy(ids).type(torch.float).view(num_ped, 1)
+                new_h_states = torch.cat([curr_hidden_ped, req_ids], dim=1)
+                new_features = torch.cat([curr_features, req_ids], dim=1)
+                h_states_sorted = new_h_states[new_h_states[:, -1].sort()[1]][:MAX_CONSIDERED_PED, :]
+                features_sorted = new_features[new_features[:, -1].sort()[1]][:MAX_CONSIDERED_PED, :]
+                required_h_states = h_states_sorted[:, :-1].contiguous().view(1, -1)
+                required_features = features_sorted[:, :-1].contiguous().view(1, -1)
+                if num_ped >= MAX_CONSIDERED_PED:
+                    req_hstates = required_h_states[:, :(MAX_CONSIDERED_PED*self.h_dim)]
+                    req_h_states.append(torch.cat([req_hstates, required_features], dim=1))
+                else:
+                    h_state_zeros = torch.zeros(1, self.h_dim * MAX_CONSIDERED_PED)
+                    h_state_zeros[:, :self.h_dim * num_ped] = required_h_states
+                    features_zeros = torch.zeros(1, MAX_CONSIDERED_PED * 2)
+                    features_zeros[:, :num_ped*2] = required_features
+                    concat_features = torch.cat([h_state_zeros, features_zeros], dim=1)
+                    req_h_states.append(concat_features)
+            aggregated_h_states = torch.cat(req_h_states, dim=0)
+            agg_h = self.mlp_pre_pool(aggregated_h_states)
+            pool_h.append(agg_h)
+        pool_h = torch.cat(pool_h, dim=0)
+        return pool_h
+
+
+class AttentionModule(nn.Module):
+
+    def __init__(self, h_dim, mlp_input_dim):
+        super(AttentionModule, self).__init__()
+        self.mlp_dim = MLP_DIM
+        self.h_dim = h_dim
+        self.bottleneck_dim = BOTTLENECK_DIM
+        self.embedding_dim = EMBEDDING_DIM
+        self.mlp_input_dim = mlp_input_dim
+
+        mlp_pre_dim = self.h_dim * MAX_CONSIDERED_PED
+        mlp_pre_pool_dims = [mlp_pre_dim, 512, BOTTLENECK_DIM]
+
+        self.pos_embedding = nn.Linear(2, EMBEDDING_DIM)
+        self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
+
+    def forward(self, h_states, seq_start_end, train_or_test, last_pos, label=None):
+        pool_h = []
+        for _, (start, end) in enumerate(seq_start_end):
+            start = start.item()
+            end = end.item()
+            num_ped = end - start
+            curr_hidden_ped = h_states.view(-1, self.h_dim)[start:end]
 
             feature = last_pos[start:end]
             dist = squareform(pdist(feature, metric="euclidean"))
