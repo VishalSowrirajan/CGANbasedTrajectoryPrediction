@@ -3,6 +3,8 @@ import torch.nn as nn
 from constants import *
 import math
 from utils import relative_to_abs, get_dataset_name
+from scipy.spatial.distance import pdist, squareform
+import numpy as np
 
 
 def make_mlp(dim_list, activation='leakyrelu', batch_norm=True, dropout=0):
@@ -220,6 +222,52 @@ class PoolingModule(nn.Module):
         return pool_h
 
 
+class AggregationModule(nn.Module):
+
+    def __init__(self, h_dim, mlp_input_dim):
+        super(AggregationModule, self).__init__()
+        self.mlp_dim = MLP_DIM
+        self.h_dim = h_dim
+        self.bottleneck_dim = BOTTLENECK_DIM
+        self.embedding_dim = EMBEDDING_DIM
+        self.mlp_input_dim = mlp_input_dim
+
+        mlp_pre_dim = self.h_dim * MAX_CONSIDERED_PED
+        mlp_pre_pool_dims = [mlp_pre_dim, 512, BOTTLENECK_DIM]
+
+        self.pos_embedding = nn.Linear(2, EMBEDDING_DIM)
+        self.mlp_pre_pool = make_mlp(mlp_pre_pool_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM, dropout=DROPOUT)
+
+    def forward(self, h_states, seq_start_end, train_or_test, last_pos, label=None):
+        pool_h = []
+        for _, (start, end) in enumerate(seq_start_end):
+            start = start.item()
+            end = end.item()
+            num_ped = end - start
+            curr_hidden_ped = h_states.view(-1, self.h_dim)[start:end]
+
+            feature = last_pos[start:end]
+            dist = squareform(pdist(feature, metric="euclidean"))
+            idx = np.argsort(dist)
+            req_h_states = []
+            for ids in idx:
+                req_ids = torch.from_numpy(ids).type(torch.float).view(num_ped, 1)
+                new_h_states = torch.cat([curr_hidden_ped, req_ids], dim=1)
+                sorted = new_h_states[new_h_states[:, -1].sort()[1]]
+                required_h_states = sorted[:, :-1].contiguous().view(1, -1)
+                if num_ped >= MAX_CONSIDERED_PED:
+                    req_h_states.append(required_h_states[:, :(MAX_CONSIDERED_PED*self.h_dim)])
+                else:
+                    h_state_zeros = torch.zeros(1, self.h_dim * MAX_CONSIDERED_PED)
+                    h_state_zeros[:, :self.h_dim * num_ped] = required_h_states
+                    req_h_states.append(h_state_zeros)
+            aggregated_h_states = torch.cat(req_h_states, dim=0)
+            agg_h = self.mlp_pre_pool(aggregated_h_states)
+            pool_h.append(agg_h)
+        pool_h = torch.cat(pool_h, dim=0)
+        return pool_h
+
+
 def speed_control(pred_traj_first_speed, seq_start_end, label=None, id=None):
     """This method acts as speed regulator. Using this method, user can add
     speed at one/more frames, stop the agent and so on"""
@@ -311,6 +359,12 @@ class TrajectoryGenerator(nn.Module):
         else:
             mlp_decoder_context_dims = [h_dim, MLP_DIM, h_dim - self.noise_first_dim]
 
+        if AGGREGATION_TYPE:
+            self.aggregation_module = AggregationModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
+            mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
+        else:
+            mlp_decoder_context_dims = [h_dim, MLP_DIM, h_dim - self.noise_first_dim]
+
         self.mlp_decoder_context = make_mlp(mlp_decoder_context_dims, activation=ACTIVATION_RELU, batch_norm=BATCH_NORM,
                                             dropout=DROPOUT)
 
@@ -333,9 +387,14 @@ class TrajectoryGenerator(nn.Module):
             final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=obs_label)
         else:
             final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=None)
-        if POOLING_TYPE:
-            pm_final_vector = self.pooling_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
-            mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), pm_final_vector], dim=1)
+        #if POOLING_TYPE:
+        #    pm_final_vector = self.pooling_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
+        #    mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), pm_final_vector], dim=1)
+        #else:
+        #    mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
+        if AGGREGATION_TYPE:
+            agg_final_vector = self.aggregation_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
+            mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), agg_final_vector], dim=1)
         else:
             mlp_decoder_context_input = final_encoder_h.view(-1, self.h_dim)
         noise_input = self.mlp_decoder_context(mlp_decoder_context_input)
@@ -370,7 +429,6 @@ class TrajectoryGenerator(nn.Module):
                 print(pred_test_traj)
                 simulated_trajectories.append(pred_test_traj)
         return pred_traj_fake_rel, decoder_h.view(-1, self.h_dim)
-
 
 
 class TrajectoryDiscriminator(nn.Module):

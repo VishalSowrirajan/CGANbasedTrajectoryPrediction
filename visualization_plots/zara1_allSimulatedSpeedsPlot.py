@@ -23,23 +23,20 @@ ySpeed04 = np.asarray([313, 315, 318, 321, 323, 324, 325, 326, 326, 327, 327, 32
 xSpeedGT = np.asarray([198, 221, 243, 266, 288, 310, 332, 354, 375, 399, 422, 446])
 ySpeedGT = np.asarray([313, 316, 319, 322, 326, 328, 328, 329, 329, 331, 333, 334])
 
-#xSpeedGT = np.asarray([525, 497, 468, 440, 412, 384, 356, 329, 301, 272, 243, 215])
-#ySpeedGT = np.asarray([327, 332, 338, 342, 345, 348, 352, 356, 360, 363, 365, 367])
 
+plt.plot(xSpeed01,ySpeed01,zorder=1, color='yellow', label='0.2', linewidth=3, linestyle='--')
+plt.plot(xSpeed02,ySpeed02,zorder=1, color='green', label='0.4', linewidth=3, linestyle='--')
+plt.plot(xSpeed03,ySpeed03,zorder=1, color='brown', label='0.6', linewidth=3, linestyle='--')
+plt.plot(xSpeed04,ySpeed04,zorder=1, color='red', label='0.8', linewidth=3, linestyle='--')
+plt.plot(xSpeedGT,ySpeedGT,zorder=1, color='blue', label='GT', linewidth=3, linestyle='--')
 
-plt.plot(xSpeed01,ySpeed01,zorder=1, color='yellow', label='0.2', linewidth=2, linestyle='--')
-plt.plot(xSpeed02,ySpeed02,zorder=1, color='green', label='0.4', linewidth=2, linestyle='--')
-plt.plot(xSpeed03,ySpeed03,zorder=1, color='brown', label='0.6', linewidth=2, linestyle='--')
-plt.plot(xSpeed04,ySpeed04,zorder=1, color='red', label='0.8', linewidth=2, linestyle='--')
-plt.plot(xSpeedGT,ySpeedGT,zorder=1, color='blue', label='GT', linewidth=2, linestyle='--')
+plt.plot(xSpeed01[-1],ySpeed01[-1],zorder=1, marker='>', color='yellow', linewidth=3)
+plt.plot(xSpeed02[-1],ySpeed02[-1],zorder=1, marker='>', color='green', linewidth=3)
+plt.plot(xSpeed03[-1],ySpeed03[-1],zorder=1, marker='>', color='brown', linewidth=3)
+plt.plot(xSpeed04[-1],ySpeed04[-1],zorder=1, marker='>', color='red', linewidth=3)
+plt.plot(xSpeedGT[-1],ySpeedGT[-1],zorder=1, marker='>', color='blue', linewidth=3)
 
-plt.plot(xSpeed01[-1],ySpeed01[-1],zorder=1, marker='>', color='yellow', linewidth=2)
-plt.plot(xSpeed02[-1],ySpeed02[-1],zorder=1, marker='>', color='green', linewidth=2)
-plt.plot(xSpeed03[-1],ySpeed03[-1],zorder=1, marker='>', color='brown', linewidth=2)
-plt.plot(xSpeed04[-1],ySpeed04[-1],zorder=1, marker='>', color='red', linewidth=2)
-plt.plot(xSpeedGT[-1],ySpeedGT[-1],zorder=1, marker='>', color='blue', linewidth=2)
-
-plt.legend()
+#plt.legend(loc='center right')
 plt.xticks([])
 plt.yticks([])
 ext = [0, 576, 0.00, 720]

@@ -4,7 +4,7 @@ PRED_LEN = 12
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
 #MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test111'
-CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/zara1.pt'
+CHECKPOINT_NAME = 'Checkpoints/Aggregation_try/zara1.pt'
 #MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/forecasting_test_v1.1.tar/test_obs\data'
 
 
@@ -70,6 +70,7 @@ L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
 POOLING_TYPE = False
+AGGREGATION_TYPE = True
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
@@ -101,6 +102,7 @@ CONSTANT_SPEED_SINGLE_CONDITION = False
 CS_SINGLE_CONDITION = 0.0  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0
+MAX_CONSIDERED_PED = 5
 
 G_STEPS = 1
 D_STEPS = 2
