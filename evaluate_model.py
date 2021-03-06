@@ -82,7 +82,7 @@ def evaluate(loader, generator, num_samples, speed_regressor):
                     #    print(a, b)
                 else:
                     _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                                   pred_traj_gt, 2, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
+                                                   pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
                     fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
                     pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
@@ -96,12 +96,12 @@ def evaluate(loader, generator, num_samples, speed_regressor):
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
                 traj_op.append(pred_traj_fake.unsqueeze(dim=0))
                 traj_obs.append(obs_traj.unsqueeze(dim=0))
-                print(pred_traj_fake)
-                print('gt', pred_traj_gt)
+                #print(pred_traj_fake)
+                #print('gt', pred_traj_gt)
 
             best_traj, min_ade_error = evaluate_helper(torch.stack(ade, dim=1), torch.cat(traj_op, dim=0),
                                                        seq_start_end)
-            print('best', best_traj)
+            #print('best', best_traj)
             staked_obs = torch.cat(traj_obs, dim=0)
             obs = staked_obs[0]
             observed_traj.append(obs)

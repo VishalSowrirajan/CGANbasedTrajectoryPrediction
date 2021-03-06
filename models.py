@@ -321,7 +321,7 @@ class AttentionModule(nn.Module):
                     social_feature_embedding = self.pos_embedding(required_features.contiguous().view(-1, 2))
                     req_h_states.append(torch.cat([required_h_states, social_feature_embedding], dim=1))
                 concat_features = torch.stack(req_h_states, dim=0)
-            attn_h = self.mlp_pre_pool(concat_features.view(-1, (self.h_dim+self.embedding_dim))) # 30, 32
+            attn_h = self.mlp_pre_pool(concat_features.view(-1, (self.h_dim+self.embedding_dim)))
             attn_h = attn_h.view(num_ped, MAX_CONSIDERED_PED, -1)
             attn_w = F.softmax(self.attn(attn_h.view(num_ped, -1)), dim=1)
             attn_w = attn_w.view(num_ped, MAX_CONSIDERED_PED, 1)

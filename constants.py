@@ -1,20 +1,20 @@
 # DATASET OPTIONS
 OBS_LEN = 8
 PRED_LEN = 12
-MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/train'
-MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/val'
+MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/train'
+MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/val'
 #MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test111'
-CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/hotel.pt'
-#MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/forecasting_test_v1.1.tar/test_obs\data'
+CHECKPOINT_NAME = 'Checkpoints/argoverse_50epochs_Random/mc_50_final_mar03.pt'
+MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/test'
 
 
 SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/zara1/train'
 SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/zara1/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/hotel/Plotting/granny'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara1/Plotting/multi_ped_zara150'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
-SINGLE_CONDITIONAL_MODEL = True  # For salcingle condition
-MULTI_CONDITIONAL_MODEL = False  # For multi condition
+SINGLE_CONDITIONAL_MODEL = False  # For salcingle condition
+MULTI_CONDITIONAL_MODEL = True  # For multi condition
 MODEL_TYPE = 0  # 0 for prediction and 1 for simulation
 
 # MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
@@ -59,7 +59,7 @@ G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
 NUM_EPOCHS_MULTI_CONDITION = 50
-NUM_EPOCHS_SINGLE_CONDITION = 50
+NUM_EPOCHS_SINGLE_CONDITION = 100
 CHECKPOINT_EVERY = 100
 MLP_DIM = 64
 EMBEDDING_DIM = 16
@@ -71,11 +71,11 @@ L2_LOSS_WEIGHT = 1
 NUM_ITERATIONS = 3200
 POOLING_TYPE = False
 AGGREGATION_TYPE = False
-ATTENTION_TYPE = True
+ATTENTION_TYPE = False
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
-TEST_METRIC = 2  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
+TEST_METRIC = 1  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
 
