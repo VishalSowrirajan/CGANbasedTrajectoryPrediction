@@ -32,16 +32,22 @@ def inverse_sigmoid(speeds, max_speed=None, labels=None):
     if SINGLE_CONDITIONAL_MODEL:
         print("The current speeds are: ", inv / max_speed)
     else:
-        labels = labels.view(PRED_LEN, -1)
-        for speed, agent in zip(inv, labels[:PRED_LEN-1, :]):
+        #labels = labels.view(PRED_LEN, -1)
+        av_tensor = [1, 0, 0]
+        av = torch.FloatTensor(av_tensor)
+        other_tensor = [0, 1, 0]
+        other = torch.FloatTensor(other_tensor)
+        agent_tensor = [0, 0, 1]
+        agent_id = torch.FloatTensor(agent_tensor)
+        for speed, agent in zip(inv, labels[:PRED_LEN-1, :, :]):
             for a, b, in zip(speed, agent):
-                if torch.eq(b, 0.1):
+                if torch.all(torch.eq(b, av)):
                     s = a / AV_MAX_SPEED
                     simulated_speed.append(s.view(1, 1))
-                elif torch.eq(b, 0.2):
+                elif torch.all(torch.eq(b, other)):
                     s = a / OTHER_MAX_SPEED
                     simulated_speed.append(s.view(1, 1))
-                elif torch.eq(b, 0.3):
+                elif torch.all(torch.eq(b, agent_id)):
                     s = a / AGENT_MAX_SPEED
                     simulated_speed.append(s.view(1, 1))
         simulated_speed = torch.cat(simulated_speed, dim=0)

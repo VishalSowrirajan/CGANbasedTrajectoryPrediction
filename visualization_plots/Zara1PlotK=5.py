@@ -25,12 +25,12 @@ xSpeed06 = np.asarray([526, 504, 482, 459, 437, 415, 393, 351, 330, 309, 287])
 ySpeed06 = np.asarray([326, 335, 341, 347, 351, 357, 360, 362, 365, 367, 368])
 
 
-plt.plot(xSpeedGT,ySpeedGT,zorder=1, color='blue', linestyle='--', linewidth=2, label='GT')
-plt.plot(xSpeed01,ySpeed01,zorder=1, color='yellow', linestyle='--', linewidth=2, label='K=1')
-plt.plot(xSpeed02,ySpeed02,zorder=1, color='green', linestyle='--', linewidth=2, label='K=2')
-plt.plot(xSpeed04,ySpeed04,zorder=1, color='red', linestyle='--', linewidth=2, label='K=3')
-plt.plot(xSpeed05,ySpeed05,zorder=1, color='brown', linestyle='--', linewidth=2, label='K=4')
-plt.plot(xSpeed06,ySpeed06,zorder=1, color='orange', linestyle='--', linewidth=2, label='K=5')
+plt.plot(xSpeedGT,ySpeedGT,zorder=1, color='blue', linestyle='--', linewidth=3, label='GT')
+plt.plot(xSpeed01,ySpeed01,zorder=1, color='yellow', linestyle='--', linewidth=3)
+plt.plot(xSpeed02,ySpeed02,zorder=1, color='green', linestyle='--', linewidth=3)
+plt.plot(xSpeed04,ySpeed04,zorder=1, color='red', linestyle='--', linewidth=3)
+plt.plot(xSpeed05,ySpeed05,zorder=1, color='brown', linestyle='--', linewidth=3)
+plt.plot(xSpeed06,ySpeed06,zorder=1, color='orange', linestyle='--', linewidth=3)
 
 plt.plot(xSpeed01[-1],ySpeed01[-1],zorder=1, color='yellow', marker='<')
 plt.plot(xSpeedGT[-1],ySpeedGT[-1],zorder=1, color='blue', marker='<')
@@ -41,7 +41,7 @@ plt.plot(xSpeed06[-1],ySpeed06[-1],zorder=1, color='orange', marker='<')
 
 
 plt.xticks([])
-plt.legend()
+plt.legend(loc='center right')
 plt.yticks([])
 ext = [0, 576, 0.00, 720]
 img = plt.imread("../zara40-1.png")

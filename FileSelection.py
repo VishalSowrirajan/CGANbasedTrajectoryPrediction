@@ -1,6 +1,6 @@
 import shutil, random, os
-dirpath = 'C:/Users/visha/Downloads/forecasting_test_v1.1 (1).tar/forecasting_test_v1.1 (1)/test_obs/data'
-destDirectory = 'C:/Users/visha/MasterThesis/ArgoverseSamples/test'
+dirpath = 'C:/Users/visha/Downloads/forecasting_val_v1.1.tar/forecasting_val_v1.1/val/data'
+destDirectory = 'C:/Users/visha/MasterThesis/ArgoverseSamples/test5'
 
 filenames = random.sample(os.listdir(dirpath), 1680)
 for fname in filenames:

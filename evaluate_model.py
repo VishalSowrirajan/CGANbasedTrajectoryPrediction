@@ -1,7 +1,9 @@
 import pickle
 import torch
+import statistics
 
 from VerifyOutputSpeed import verify_speed
+#from argoverse.data_loading.argoverse_forecasting_loader import ArgoverseForecastingLoader
 from create_dataset import create_data
 from trajectories import data_loader
 from models import TrajectoryGenerator, SpeedEncoderDecoder
@@ -70,38 +72,37 @@ def evaluate(loader, generator, num_samples, speed_regressor):
                 labels.append(pred_label)
 
             for _ in range(num_samples):
-                if MULTI_CONDITIONAL_MODEL:
-                    #fake_pred_speed = speed_regressor()
-                    _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                if TEST_METRIC == 1:
+                    if MULTI_CONDITIONAL_MODEL:
+                        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
-                    fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
-                    pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                        fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
+                        pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
                                                    TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
-                    #for a, b in zip(fake_speed, pred_ped_speed):
-                    #    print(a, b)
-                else:
-                    _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                    else:
+                        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
-                    fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
-                    pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                        fake_speed = speed_regressor(obs_ped_speed, final_enc_h)
+                        pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt,
                                                    TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
-
-                    #for a, b in zip(fake_speed, pred_ped_speed):
-                    #    print(a, b)
+                elif TEST_METRIC == 2:
+                    if MULTI_CONDITIONAL_MODEL:
+                            pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt, TEST_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+                    else:
+                        pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
+                                                   pred_traj_gt, TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
                 fde.append(final_displacement_error(pred_traj_fake[-1], pred_traj_gt[-1], mode='raw'))
                 traj_op.append(pred_traj_fake.unsqueeze(dim=0))
                 traj_obs.append(obs_traj.unsqueeze(dim=0))
-                #print(pred_traj_fake)
-                #print('gt', pred_traj_gt)
 
             best_traj, min_ade_error = evaluate_helper(torch.stack(ade, dim=1), torch.cat(traj_op, dim=0),
                                                        seq_start_end)
-            #print('best', best_traj)
             staked_obs = torch.cat(traj_obs, dim=0)
             obs = staked_obs[0]
             observed_traj.append(obs)
@@ -133,7 +134,7 @@ def evaluate(loader, generator, num_samples, speed_regressor):
         sequences = torch.cat(curr_sequences, dim=0)
         colpercent = collisionPercentage(simulated_traj, sequences)
         #create_data(simulated_traj.permute(1, 0, 2), sequences)
-        print(colpercent * 100)
+        print('Collision Percentage: ', colpercent * 100)
 
         if TEST_METRIC == 2:
             if SINGLE_CONDITIONAL_MODEL:
@@ -169,10 +170,6 @@ def main():
     print('Initializing Test dataset')
     _, loader = data_loader(test_dataset, TEST_METRIC, 'test')
     print('Test dataset preprocessing done')
-    if TEST_METRIC == 2:
-        num_samples = 20
-    else:
-        num_samples = NUM_SAMPLES
     for _ in range(1):
         ade, fde = evaluate(loader, generator, NUM_SAMPLES, speed_regressor)
         print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))

@@ -1,21 +1,18 @@
 # DATASET OPTIONS
-OBS_LEN = 8
-PRED_LEN = 12
+OBS_LEN = 20
+PRED_LEN = 30
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/val'
-#MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/Argoverse Sub Sample/test111'
 CHECKPOINT_NAME = 'Checkpoints/argoverse_50epochs_Random/mc_50_final_mar03.pt'
-MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/test'
+MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/Speed_check_Test'
 
-
-SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/zara1/train'
-SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/zara1/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara1/Plotting/multi_ped_zara150'
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/zara2/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/zara2/val'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara2/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
-SINGLE_CONDITIONAL_MODEL = False  # For salcingle condition
+SINGLE_CONDITIONAL_MODEL = False  # For single condition
 MULTI_CONDITIONAL_MODEL = True  # For multi condition
-MODEL_TYPE = 0  # 0 for prediction and 1 for simulation
 
 # MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
 # for argoverse
@@ -58,9 +55,9 @@ MLP_INPUT_DIM_SINGLE_CONDITION = 3
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
-NUM_EPOCHS_MULTI_CONDITION = 50
-NUM_EPOCHS_SINGLE_CONDITION = 100
-CHECKPOINT_EVERY = 100
+NUM_EPOCHS_MULTI_CONDITION = 100
+NUM_EPOCHS_SINGLE_CONDITION = 50
+CHECKPOINT_EVERY = 20
 MLP_DIM = 64
 EMBEDDING_DIM = 16
 BOTTLENECK_DIM = 32
@@ -75,7 +72,7 @@ ATTENTION_TYPE = False
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
-TEST_METRIC = 1  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
+TEST_METRIC = 2  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
 
@@ -83,8 +80,8 @@ VERIFY_OUTPUT_SPEED = 1
 
 # Below flag is set to true if multi condition model on argoverse dataset is set to true.
 DIFFERENT_SPEED_MULTI_CONDITION = True
-AV_SPEED = 0.7
-AGENT_SPEED = 0.5
+AV_SPEED = 0.0
+AGENT_SPEED = 0.0
 OTHER_SPEED = 0.8
 
 CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
@@ -99,7 +96,7 @@ ADD_SPEED_PARTICULAR_FRAME = False  # FRAMES_TO_ADD_SPEED flag will be active on
 FRAMES_TO_ADD_SPEED = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]  # Provide a value between 0 to length of (predicted traj-1)
 MAX_SPEED = 0.9
 
-CONSTANT_SPEED_SINGLE_CONDITION = True
+CONSTANT_SPEED_SINGLE_CONDITION = False
 CS_SINGLE_CONDITION = 0.8  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0

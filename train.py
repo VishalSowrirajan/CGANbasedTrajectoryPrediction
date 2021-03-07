@@ -185,22 +185,22 @@ def main():
             g_steps_left = G_STEPS
             if t >= NUM_ITERATIONS:
                 break
-        #total_speed_loss = sum(sr_loss) / len(sr_loss)
-        #print('total_speed_loss', total_speed_loss)
+        total_speed_loss = sum(sr_loss) / len(sr_loss)
+        print('total_speed_loss', total_speed_loss)
         #speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
         #speed_regressor_loss_writer.close()
 
-        #total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
-        #print('total_val_ade_loss', total_val_ade_err)
+        total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
+        print('total_val_ade_loss', total_val_ade_err)
 
-        #total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
-        #print('total_val_fde_loss', total_val_fde_err)
+        total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
+        print('total_val_fde_loss', total_val_fde_err)
 
-        #total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
-        #print('total_train_ade_loss', total_train_ade_err)
+        total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
+        print('total_train_ade_loss', total_train_ade_err)
 
-        #total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
-        #print('total_train_fde_loss', total_train_fde_err)
+        total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
+        print('total_train_fde_loss', total_train_fde_err)
 
         #trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
         #valade.add_scalar('ade_loss', total_val_ade_err, epoch)

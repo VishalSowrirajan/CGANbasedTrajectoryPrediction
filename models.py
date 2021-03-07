@@ -165,7 +165,7 @@ class Decoder(nn.Module):
                         curr_label = label[0, :, :]
                 else:
                     if SINGLE_CONDITIONAL_MODEL:
-                        speed = speed_control(pred_ped_speed[id, :, :], seq_start_end, id=id+1)
+                        speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, id=id+1)
                     elif MULTI_CONDITIONAL_MODEL:
                         curr_label = label[0, :, :]
                         speed = speed_control(pred_ped_speed[0, :, :], seq_start_end, label=curr_label)
@@ -417,7 +417,7 @@ class TrajectoryGenerator(nn.Module):
         self.noise_first_dim = NOISE_DIM[0]
 
         if POOLING_TYPE:
-            self.pooling_module = PoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
+            self.conditionalPoolingModule = PoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
             mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
         elif AGGREGATION_TYPE:
             self.aggregation_module = AggregationModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
@@ -451,7 +451,7 @@ class TrajectoryGenerator(nn.Module):
         else:
             final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=None)
         if POOLING_TYPE:
-            pm_final_vector = self.pooling_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
+            pm_final_vector = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
             mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), pm_final_vector], dim=1)
         elif AGGREGATION_TYPE:
             agg_final_vector = self.aggregation_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
@@ -480,7 +480,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT FOR MULTI CONDITIONAL MODEL WHEN THE PREDICTED LENGTH IS MORE - useful to check the speed condition
-        if train_or_test == 3:
+        if train_or_test == 2:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()

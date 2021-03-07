@@ -29,7 +29,7 @@ plt.plot(xSpeed03[-1],ySpeed03[-1],zorder=1, marker='<', color='yellow', linewid
 #plt.plot(xSpeed01[-1],ySpeed01[-1],zorder=1, marker='>', color='red', linewidth=2)
 #plt.plot(xSpeedGT[-1],ySpeedGT[-1],zorder=1, marker='>', color='blue', linewidth=2)
 
-#plt.legend(loc='center right')
+plt.legend(loc='center right')
 plt.xticks([])
 plt.yticks([])
 ext = [0, 576, 0.00, 720]
