@@ -20,7 +20,7 @@ def get_distance(trajectories):
     euclid_distance = []
     for a, b in zip(trajectories[:, :], trajectories[1:, :]):
         dist = torch.pairwise_distance(a, b)
-        dist = dist.detach().numpy()
+        dist = dist.cpu().detach().numpy()
         euclid_distance.append(dist.reshape(1, -1))
     euclid_distance = torch.from_numpy(np.concatenate(euclid_distance, axis=0)).type(torch.float)
     return euclid_distance
@@ -51,8 +51,7 @@ def inverse_sigmoid(speeds, max_speed=None, labels=None):
                     s = a / AGENT_MAX_SPEED
                     simulated_speed.append(s.view(1, 1))
         simulated_speed = torch.cat(simulated_speed, dim=0)
-        for a in labels:
-            print('the labels are: ', a)
+        print('the labels are: ', labels)
         print("The current speeds are: ", simulated_speed.view(PRED_LEN-1, -1))
 
 
