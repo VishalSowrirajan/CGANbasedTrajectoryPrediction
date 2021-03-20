@@ -16,7 +16,7 @@ def gan_g_loss(scores_fake):
 
 def gan_d_loss(scores_real, scores_fake):
     y_real = torch.ones_like(scores_real) * random.uniform(0.7, 1.2)
-    y_fake = torch.zeros_like(scores_fake) * random.uniform(0, 0.3)
+    y_fake = torch.zeros_like(scores_fake)
     loss_real = bce_loss(scores_real, y_real)
     loss_fake = bce_loss(scores_fake, y_fake)
     return loss_real + loss_fake
@@ -70,21 +70,6 @@ def final_displacement_error(
         return loss
     else:
         return torch.sum(loss)
-
-
-def mean_speed_error(real_speed, fake_speed):
-    # Mean speed loss over all timesteps - Used only for feedback and not for training the model
-    speed_loss = torch.abs(real_speed - fake_speed)
-    add_loss = torch.sum(speed_loss, dim=1)
-    add_loss_1 = torch.sum(add_loss)
-    return add_loss_1
-
-
-def final_speed_error(real_speed, fake_speed):
-    # Final traj speed loss - Used only for feedback and not for training the model
-    speed_loss = torch.abs(real_speed - fake_speed)
-    add_loss_1 = torch.sum(speed_loss)
-    return add_loss_1
 
 
 def relative_to_abs(rel_traj, start_pos):

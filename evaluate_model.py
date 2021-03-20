@@ -1,10 +1,6 @@
-import pickle
 import torch
-import statistics
 
 from VerifyOutputSpeed import verify_speed
-#from argoverse.data_loading.argoverse_forecasting_loader import ArgoverseForecastingLoader
-from create_dataset import create_data
 from trajectories import data_loader
 from models import TrajectoryGenerator, SpeedEncoderDecoder
 from utils import displacement_error, final_displacement_error, relative_to_abs
@@ -18,7 +14,6 @@ def collisionPercentage(traj, sequences):
     collided_or_not = []
     no_of_frames = 0
     for (start, end) in sequences:
-        curr_Traj = traj[:, start:end, :]
         curr_Traj = traj[:, start:end, :].cpu().data.numpy()
         # no_of_frames += curr_frame
         curr_collided_peds = 0
@@ -69,10 +64,10 @@ def evaluate(loader, generator, num_samples, speed_regressor):
             total_traj.append(pred_traj_gt.size(1))
             sequences.append(seq_start_end)
             if MULTI_CONDITIONAL_MODEL:
-                labels.append(pred_label)
+                labels.append(torch.cat([obs_label, pred_label], dim=0))
 
             for _ in range(num_samples):
-                if TEST_METRIC == 1:
+                if TEST_METRIC == 1:  # USED DURING PREDICTION ENVIRONMENT
                     if MULTI_CONDITIONAL_MODEL:
                         _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
                                                    pred_traj_gt, 0, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
@@ -93,7 +88,7 @@ def evaluate(loader, generator, num_samples, speed_regressor):
                                                    pred_traj_gt, TEST_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
                     else:
                         pred_traj_fake_rel, _ = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                                   pred_traj_gt, TEST_METRIC, fake_speed, obs_obj_rel_speed, obs_label=None, pred_label=None)
+                                                   pred_traj_gt, TEST_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
 
                 pred_traj_fake = relative_to_abs(pred_traj_fake_rel, obs_traj[-1])
                 ade.append(displacement_error(pred_traj_fake, pred_traj_gt, mode='raw'))
@@ -143,7 +138,7 @@ def evaluate(loader, generator, num_samples, speed_regressor):
             else:
                 verify_speed(simulated_traj, sequences, labels=all_labels)
 
-        return ade, fde
+        return ade, fde, colpercent * 100
 
 
 def main():
@@ -160,6 +155,7 @@ def main():
     speed_regressor.load_state_dict(checkpoint['regressor_state'])
     if USE_GPU:
         generator.cuda()
+        speed_regressor.cuda()
     generator.train()
     speed_regressor.train()
 
@@ -170,10 +166,18 @@ def main():
     print('Initializing Test dataset')
     _, loader = data_loader(test_dataset, TEST_METRIC, 'test')
     print('Test dataset preprocessing done')
-    for _ in range(1):
-        ade, fde = evaluate(loader, generator, NUM_SAMPLES, speed_regressor)
-        print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))
 
+    cm, ade_final, fde_final = [], [], []
+    for _ in range(1):
+        ade, fde, ca = evaluate(loader, generator, NUM_SAMPLES, speed_regressor)
+        cm.append(ca)
+        ade_final.append(ade)
+        fde_final.append(fde)
+        print(ade, fde)
+        print('Pred Len: {}, ADE: {:.2f}, FDE: {:.2f}'.format(PRED_LEN, ade, fde))
+    print('average collision: ', sum(cm)/len(cm))
+    print('average ade: ', sum(ade_final) / len(ade_final))
+    print('average fde: ', sum(fde_final) / len(fde_final))
 
 if __name__ == '__main__':
     main()

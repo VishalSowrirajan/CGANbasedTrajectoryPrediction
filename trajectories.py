@@ -9,10 +9,8 @@ from torch.utils.data import Dataset
 from constants import *
 
 
-def data_loader(path, metric, train_or_val):
-    dset = TrajectoryDataset(
-        path,
-        metric, train_or_val)
+def data_loader(path, metric, train_or_test):
+    dset = Preprocessor(path, metric, train_or_test)
 
     if MULTI_CONDITIONAL_MODEL:
         loader = DataLoader(dset, batch_size=BATCH_MULTI_CONDITION, shuffle=True, num_workers=NUM_WORKERS, collate_fn=seq_collate)
@@ -87,7 +85,7 @@ def read_file(_path):
 
 
 def get_min_max_distance(seq_len, all_files):
-    ped_speed = []
+    ped_speed, av_speed, agent_speed, other_speed = [], [], [], []
     for path in all_files:
         data = read_file(path)
         frames = np.unique(data[:, 0]).tolist()
@@ -106,38 +104,58 @@ def get_min_max_distance(seq_len, all_files):
                 label = curr_obj_seq[0, 2]
                 if pad_end - pad_front != seq_len:
                     continue
-                curr_obj_x_axis_new = [0.0] + [np.square(t - s) for s, t in
-                                               zip(curr_obj_seq[:, 2], curr_obj_seq[1:, 2])]
-                curr_obj_y_axis_new = [0.0] + [np.square(t - s) for s, t in
+                curr_obj_x_axis_new = [0.0] + [np.square(float(t) - float(s)) for s, t in
                                                zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
+                curr_obj_y_axis_new = [0.0] + [np.square(float(t) - float(s)) for s, t in
+                                               zip(curr_obj_seq[:, 4], curr_obj_seq[1:, 4])]
 
                 curr_obj_dist = np.sqrt(np.add(curr_obj_x_axis_new, curr_obj_y_axis_new))
-                curr_obj_speed = curr_obj_dist / 0.4
-                ped_speed.append(np.max(curr_obj_speed))
-                ped_speed.append(np.min(curr_obj_speed))
-    ped_speed = np.array(ped_speed).reshape(-1, 1)
+                curr_obj_speed = curr_obj_dist
+                if label == 'AV':
+                    for a in curr_obj_speed:
+                        av_speed.append(round(a, 2))
+                elif label == 'OTHERS':
+                    for a in curr_obj_speed:
+                        other_speed.append(round(a, 2))
+                else:
+                    for a in curr_obj_speed:
+                        agent_speed.append(round(a, 2))
+
+    av_speed = np.array(av_speed).reshape(-1, 1)
+    agent_speed = np.array(agent_speed).reshape(-1, 1)
+    other_speed = np.array(other_speed).reshape(-1, 1)
     # Find the domain-wise max and min speed to normalize the speed values
-    max_ped_speed = np.amax(ped_speed)
-    unique, counts = np.unique(ped_speed, return_counts=True)
-    a = np.asarray((unique, counts)).T
-    for b in a:
+    av_unique, av_counts = np.unique(av_speed, return_counts=True)
+    agent_unique, agent_counts = np.unique(agent_speed, return_counts=True)
+    other_unique, other_counts = np.unique(other_speed, return_counts=True)
+    av = np.asarray((av_unique, av_counts)).T
+    agent = np.asarray((agent_unique, agent_counts)).T
+    other = np.asarray((other_unique, other_counts)).T
+    for b in av:
         print(b)
-    return max_ped_speed
+    print('av done')
+    for b in agent:
+        print(b)
+    print('agent done')
+    for b in other:
+        print(b)
+    print('other done')
+
+    return 'max_ped_speed'
 
 
-
-class TrajectoryDataset(Dataset):
+class Preprocessor(Dataset):
     """Dataloder for the Trajectory datasets"""
 
     def __init__(
-            self, data_dir, metric=0, train_or_val = None
+            self, data_dir, metric=0, train_or_test = None
     ):
-        super(TrajectoryDataset, self).__init__()
+        super(Preprocessor, self).__init__()
 
         self.data_dir = data_dir
         SEQ_LEN = OBS_LEN + PRED_LEN
         self.train_or_test = metric
-        self.train_or_val = train_or_val
+        self.train_or_test = train_or_test
 
         all_files = os.listdir(self.data_dir)
         all_files = [os.path.join(self.data_dir, _path) for _path in all_files]
@@ -205,6 +223,7 @@ class TrajectoryDataset(Dataset):
                     _idx = num_obj_considered
 
                     if MULTI_CONDITIONAL_MODEL:
+                        # ONE HOT ENCODING OF AGENT LABELS
                         emb_label = np.zeros(3, 'uint8')
                         if label == 'AV':
                             emb_label[0] = 1
@@ -256,14 +275,10 @@ class TrajectoryDataset(Dataset):
             obj_label = np.concatenate(obj_label, axis=0)
 
         # Convert numpy -> Torch Tensor
-        self.obs_traj = torch.from_numpy(
-            seq_list[:, :, :OBS_LEN]).type(torch.float)
-        self.pred_traj = torch.from_numpy(
-            seq_list[:, :, OBS_LEN:]).type(torch.float)
-        self.obs_traj_rel = torch.from_numpy(
-            seq_list_rel[:, :, :OBS_LEN]).type(torch.float)
-        self.pred_traj_rel = torch.from_numpy(
-            seq_list_rel[:, :, OBS_LEN:]).type(torch.float)
+        self.obs_traj = torch.from_numpy(seq_list[:, :, :OBS_LEN]).type(torch.float)
+        self.pred_traj = torch.from_numpy(seq_list[:, :, OBS_LEN:]).type(torch.float)
+        self.obs_traj_rel = torch.from_numpy(seq_list_rel[:, :, :OBS_LEN]).type(torch.float)
+        self.pred_traj_rel = torch.from_numpy(seq_list_rel[:, :, OBS_LEN:]).type(torch.float)
 
         self.obs_obj_abs_speed = obj_abs_speed[:, :OBS_LEN].unsqueeze(dim=1).type(torch.float)
         self.pred_obj_abs_speed = obj_abs_speed[:, OBS_LEN:].unsqueeze(dim=1).type(torch.float)
@@ -276,10 +291,7 @@ class TrajectoryDataset(Dataset):
             self.pred_obj_label = torch.from_numpy(obj_label[:, :, OBS_LEN:]).type(torch.float)
 
         cum_start_idx = [0] + np.cumsum(num_obj_in_seq).tolist()
-        self.seq_start_end = [
-            (start, end)
-            for start, end in zip(cum_start_idx, cum_start_idx[1:])
-        ]
+        self.seq_start_end = [(start, end) for start, end in zip(cum_start_idx, cum_start_idx[1:])]
 
     def __len__(self):
         return self.num_seq

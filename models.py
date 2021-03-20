@@ -184,7 +184,6 @@ class Decoder(nn.Module):
 
 
 class PoolingModule(nn.Module):
-    """Todo"""
 
     def __init__(self, h_dim, mlp_input_dim):
         super(PoolingModule, self).__init__()
@@ -247,19 +246,25 @@ class AggregationModule(nn.Module):
             num_ped = end - start
             curr_hidden_ped = h_states.view(-1, self.h_dim)[start:end]
 
-            feature = last_pos[start:end]
+            feature = last_pos[start:end].cpu().data.numpy()
             dist = squareform(pdist(feature, metric="euclidean"))
             idx = np.argsort(dist)
             req_h_states = []
             for ids in idx:
-                req_ids = torch.from_numpy(ids).type(torch.float).view(num_ped, 1)
+                if USE_GPU:
+                    req_ids = torch.from_numpy(ids).type(torch.cuda.FloatTensor).view(num_ped, 1)
+                else:
+                    req_ids = torch.from_numpy(ids).type(torch.float).view(num_ped, 1)
                 new_h_states = torch.cat([curr_hidden_ped, req_ids], dim=1)
                 sorted = new_h_states[new_h_states[:, -1].sort()[1]]
                 required_h_states = sorted[:, :-1].contiguous().view(1, -1)
                 if num_ped >= MAX_CONSIDERED_PED:
                     req_h_states.append(required_h_states[:, :(MAX_CONSIDERED_PED*self.h_dim)])
                 else:
-                    h_state_zeros = torch.zeros(1, self.h_dim * MAX_CONSIDERED_PED)
+                    if USE_GPU:
+                        h_state_zeros = torch.zeros(1, self.h_dim * MAX_CONSIDERED_PED).cuda()
+                    else:
+                        h_state_zeros = torch.zeros(1, self.h_dim * MAX_CONSIDERED_PED)
                     h_state_zeros[:, :self.h_dim * num_ped] = required_h_states
                     req_h_states.append(h_state_zeros)
             aggregated_h_states = torch.cat(req_h_states, dim=0)
@@ -298,20 +303,28 @@ class AttentionModule(nn.Module):
             curr_end_pos_1 = feature.repeat(num_ped, 1)
             curr_end_pos_2 = feature.unsqueeze(dim=1).repeat(1, num_ped, 1).view(-1, 2)
             social_features = curr_end_pos_1[:, :2] - curr_end_pos_2[:, :2]
+            feature = last_pos[start:end].cpu().data.numpy()
             dist = squareform(pdist(feature, metric="euclidean"))
             idx = np.argsort(dist)
             req_h_states = []
             social_features = social_features.view(num_ped, num_ped, 2)
             if num_ped < MAX_CONSIDERED_PED:
                 social_feature_embedding = self.pos_embedding(social_features.contiguous().view(-1, 2))
-                h_state_zeros = torch.zeros(num_ped, MAX_CONSIDERED_PED, self.h_dim)
-                feature_zeros = torch.zeros(num_ped, MAX_CONSIDERED_PED, self.embedding_dim)
+                if USE_GPU:
+                    h_state_zeros = torch.zeros(num_ped, MAX_CONSIDERED_PED, self.h_dim).cuda()
+                    feature_zeros = torch.zeros(num_ped, MAX_CONSIDERED_PED, self.embedding_dim).cuda()
+                else:
+                    h_state_zeros = torch.zeros(num_ped, MAX_CONSIDERED_PED, self.h_dim)
+                    feature_zeros = torch.zeros(num_ped, MAX_CONSIDERED_PED, self.embedding_dim)
                 h_state_zeros[:num_ped, :num_ped, :] = repeat_hstate.view(num_ped, num_ped, self.h_dim)
                 feature_zeros[:num_ped, :num_ped, :] = social_feature_embedding.view(num_ped, num_ped, self.embedding_dim)
                 concat_features = torch.cat([h_state_zeros.view(-1, self.h_dim), feature_zeros.view(-1, self.embedding_dim)], dim=1)
             else:
                 for ids, curr_features, curr_h_states in zip(idx, social_features, repeat_hstate):
-                    req_ids = torch.from_numpy(ids).type(torch.float).view(num_ped, 1)
+                    if USE_GPU:
+                        req_ids = torch.from_numpy(ids).type(torch.cuda.FloatTensor).view(num_ped, 1)
+                    else:
+                        req_ids = torch.from_numpy(ids).type(torch.float).view(num_ped, 1)
                     new_h_states = torch.cat([curr_h_states, req_ids], dim=1)
                     new_features = torch.cat([curr_features, req_ids], dim=1)
                     h_states_sorted = new_h_states[new_h_states[:, -1].sort()[1]][:MAX_CONSIDERED_PED, :]
@@ -345,22 +358,14 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None, id=None):
             agent_tensor = [0, 0, 1]
             agent = torch.FloatTensor(agent_tensor)
             if DIFFERENT_SPEED_MULTI_CONDITION:
-                for a, b in zip(range(start, end), label):
-                    if torch.all(torch.eq(b, av)):
-                        pred_traj_first_speed[a] = sigmoid(AV_SPEED * AV_MAX_SPEED)
-                    elif torch.all(torch.eq(b, other)):
-                        pred_traj_first_speed[a] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
-                    elif torch.all(torch.eq(b, agent)):
-                        pred_traj_first_speed[a] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
-            elif CONSTANT_SPEED_MULTI_CONDITION:
-                # To make all pedestrians travel at same and constant speed throughout
-                for a, b in zip(range(start, end), label):
-                    if torch.eq(b, 0.1):
-                        pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * AV_MAX_SPEED)
-                    elif torch.eq(b, 0.2):
-                        pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * OTHER_MAX_SPEED)
-                    elif torch.eq(b, 0.3):
-                        pred_traj_first_speed[a] = sigmoid(CS_MULTI_CONDITION * AGENT_MAX_SPEED)
+                for a in range(start, end):
+                    for b, c in zip(label[start: end], range(start, end)):
+                        if torch.all(torch.eq(b, av)):
+                            pred_traj_first_speed[c] = sigmoid(AV_SPEED * AV_MAX_SPEED)
+                        elif torch.all(torch.eq(b, other)):
+                            pred_traj_first_speed[c] = sigmoid(OTHER_SPEED * OTHER_MAX_SPEED)
+                        elif torch.all(torch.eq(b, agent)):
+                            pred_traj_first_speed[c] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
         elif SINGLE_CONDITIONAL_MODEL:
             if CONSTANT_SPEED_SINGLE_CONDITION:
                 dataset_name = get_dataset_name(SINGLE_TEST_DATASET_PATH)
@@ -480,7 +485,7 @@ class TrajectoryGenerator(nn.Module):
         pred_traj_fake_rel = decoder_out
 
         # LOGGING THE OUTPUT FOR MULTI CONDITIONAL MODEL WHEN THE PREDICTED LENGTH IS MORE - useful to check the speed condition
-        if train_or_test == 2:
+        if train_or_test == 4:
             simulated_trajectories = []
             for _, (start, end) in enumerate(seq_start_end):
                 start = start.item()
@@ -489,7 +494,9 @@ class TrajectoryGenerator(nn.Module):
                 pred_test_traj_rel = pred_traj_fake_rel[:, start:end, :]
                 pred_test_traj = relative_to_abs(pred_test_traj_rel, obs_test_traj[-1])
                 speed_added = pred_ped_speed[0, start:end, :]
+                curr_label = pred_label[0, start:end, :]
                 print(speed_added)
+                print(curr_label)
                 print(pred_test_traj)
                 simulated_trajectories.append(pred_test_traj)
         return pred_traj_fake_rel, decoder_h.view(-1, self.h_dim)
@@ -506,8 +513,8 @@ class TrajectoryDiscriminator(nn.Module):
 
     def forward(self, traj, traj_rel, ped_speed, label=None):
         if MULTI_CONDITIONAL_MODEL:
-            final_h = self.encoder(traj_rel, ped_speed, label=label)  # final layer of the encoder is returned
+            final_h = self.encoder(traj_rel, ped_speed, label=label)
         else:
-            final_h = self.encoder(traj_rel, ped_speed, label=None)  # final layer of the encoder is returned
-        scores = self.real_classifier(final_h.squeeze())  # mlp - 64 --> 1024 --> 1
+            final_h = self.encoder(traj_rel, ped_speed, label=None)
+        scores = self.real_classifier(final_h.squeeze())
         return scores

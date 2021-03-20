@@ -3,11 +3,12 @@ OBS_LEN = 20
 PRED_LEN = 30
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/val'
-CHECKPOINT_NAME = 'Checkpoints/argoverse_50epochs_Random/mc_50_final_mar03.pt'
+#CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/zara2.pt'
+CHECKPOINT_NAME = 'Checkpoints/argoverse_50epochs_Random/2.pt'
 MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/Speed_check_Test'
 
-SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/zara2/train'
-SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/zara2/val'
+SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
+SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
 SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara2/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
@@ -16,18 +17,19 @@ MULTI_CONDITIONAL_MODEL = True  # For multi condition
 
 # MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
 # for argoverse
-AV_MAX_SPEED = 1.6
-OTHER_MAX_SPEED = 2.2
-AGENT_MAX_SPEED = 2
+AV_MAX_SPEED = 2.46
+OTHER_MAX_SPEED = 1.71
+AGENT_MAX_SPEED = 3.33
 
 # for eth/ucy
-ETH_MAX_SPEED = 2.0
-HOTEL_MAX_SPEED = 2.0
-UNIV_MAX_SPEED = 2.0
-ZARA1_MAX_SPEED = 2.0
-ZARA2_MAX_SPEED = 2.0
+ETH_MAX_SPEED = 2.5
+SINGLE_AGENT_MAX_SPEED = 2.5
+HOTEL_MAX_SPEED = 2.5
+UNIV_MAX_SPEED = 2.5
+ZARA1_MAX_SPEED = 2.5
+ZARA2_MAX_SPEED = 2.5
 
-# PYTORCH DATA LOADER OPTIONS
+# PYTORCH DATA LOADER OPTIONSn
 NUM_WORKERS = 4
 BATCH_MULTI_CONDITION = 32
 BATCH_SINGLE_CONDITION = 16
@@ -55,9 +57,9 @@ MLP_INPUT_DIM_SINGLE_CONDITION = 3
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
-NUM_EPOCHS_MULTI_CONDITION = 100
+NUM_EPOCHS_MULTI_CONDITION = 50
 NUM_EPOCHS_SINGLE_CONDITION = 50
-CHECKPOINT_EVERY = 20
+CHECKPOINT_EVERY = 100
 MLP_DIM = 64
 EMBEDDING_DIM = 16
 BOTTLENECK_DIM = 32
@@ -80,9 +82,9 @@ VERIFY_OUTPUT_SPEED = 1
 
 # Below flag is set to true if multi condition model on argoverse dataset is set to true.
 DIFFERENT_SPEED_MULTI_CONDITION = True
-AV_SPEED = 0.0
-AGENT_SPEED = 0.0
-OTHER_SPEED = 0.8
+AV_SPEED = 0.2
+OTHER_SPEED = 0.9
+AGENT_SPEED = 0.5
 
 CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
 CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
@@ -96,8 +98,8 @@ ADD_SPEED_PARTICULAR_FRAME = False  # FRAMES_TO_ADD_SPEED flag will be active on
 FRAMES_TO_ADD_SPEED = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]  # Provide a value between 0 to length of (predicted traj-1)
 MAX_SPEED = 0.9
 
-CONSTANT_SPEED_SINGLE_CONDITION = False
-CS_SINGLE_CONDITION = 0.8  # Constant speed single condition
+CONSTANT_SPEED_SINGLE_CONDITION = True
+CS_SINGLE_CONDITION = 0.9  # Constant speed single condition
 
 ANIMATED_VISUALIZATION_CHECK = 0
 MAX_CONSIDERED_PED = 5
@@ -105,8 +107,12 @@ MAX_CONSIDERED_PED = 5
 G_STEPS = 1
 D_STEPS = 2
 SR_STEPS = 1
-BEST_K = 10
+BEST_K = 20
 PRINT_EVERY = 100
 NUM_SAMPLES = 20
 NOISE = True
 NUM_SAMPLE_CHECK = 100
+
+EXTRAPOLATE_MIN = False
+EXTRAPOLATE_MID = False
+EXTRAPOLATE_MAX = False

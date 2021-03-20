@@ -1,7 +1,8 @@
-# **CGANbasedTrajectoryPrediction**  (BETA VERSION)
+# **Conditional Generative Adversarial Networks for Speed Control in TrajectorySimulation**
 
-* This project aims to generate realistic trajectories using Conditional GAN architecture with speed as an additional condition.
-* The model proposed in this project can be used to simulate trajectories at different speeds
+##Architecture Overview
+![Arch](/arch.pdf)
+
 
 Pedestrian Simulation with Original Speed and Maximum speed:
 ![OriginalSpeedPlot](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/master/Plots/Real%20and%20Simulated%20Traj%20-%20Max%20Speed.gif)
@@ -31,7 +32,7 @@ To evaluate the model with actual ground_truth trajectory speed, run:
 python evaluate_model.py
 ````
 
-To simulate trajectories at different speed, change the TEST_METRIC to 1 and select one of the following options in CONSTANTS.py file.
+To simulate trajectories at different speed, change the TEST_METRIC to 2 and select one of the following options in CONSTANTS.py file.
 - To maintain constant speeds for all pedestrians: Change the flag CONSTANT_SPEED_FOR_ALL_PED to True and enter a value between 0 and 1 in CONSTANT_SPEED variable
 - To stop all the pedestrians: Change the flag STOP_PED to True
 - To increase speed at every frames: Change the flag ADD_SPEED_EVERY_FRAME TO True and enter a value between 0 and 1 in SPEED_TO_ADD variable.
@@ -42,10 +43,3 @@ After the necessary changes, run:
 python evaluate_model.py
 ````
 **Note:** The speed value should be 0 < speed > 1
-
-Visualization is supported only for the simulated trajectories at different speeds:
-
-To visualize the trajectories, run:
-````
-python AnimationPlotForTraj.py
-````

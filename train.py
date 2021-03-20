@@ -4,12 +4,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from constants import *
-#from torch.utils.tensorboard import SummaryWriter
 
 
 from trajectories import data_loader
-from utils import gan_g_loss, gan_d_loss, l2_loss, mean_speed_error, \
-    final_speed_error, displacement_error, final_displacement_error, relative_to_abs, mae_loss
+from utils import gan_g_loss, gan_d_loss, l2_loss, displacement_error, final_displacement_error, relative_to_abs, mae_loss
 
 from models import TrajectoryGenerator, TrajectoryDiscriminator, SpeedEncoderDecoder
 
@@ -97,15 +95,6 @@ def main():
     }
     val_ade_list, val_fde_list, train_ade, train_fde, train_avg_speed_error, val_avg_speed_error, val_msae_list = [], [], [], [], [], [], []
     train_ade_list, train_fde_list = [], []
-    #gen_writer = SummaryWriter("runs/gen")
-    #dis_writer = SummaryWriter("runs/dis")
-
-    #speed_regressor_loss_writer = SummaryWriter("runs/speed_regressor_loss")
-
-    #trainade = SummaryWriter("runs/trainade")
-    #trainfde = SummaryWriter("runs/trainfde")
-    #valade = SummaryWriter("runs/valade")
-    #valfde = SummaryWriter("runs/valfde")
 
     while epoch < required_epoch:
         gc.collect()
@@ -128,13 +117,6 @@ def main():
 
             if d_steps_left > 0 or g_steps_left > 0:
                 continue
-
-            #gen_writer.add_scalar('loss', gent_loss[0], epoch)
-            #dis_writer.add_scalar('loss', disc_loss[0], epoch)
-            #gen_writer.close()
-            #dis_writer.close()
-            #disc_loss.clear()
-            #gent_loss.clear()
 
             if t > 0 and t % CHECKPOINT_EVERY == 0:
 
@@ -159,7 +141,6 @@ def main():
 
                 train_ade_list.append(metrics_train['ade'])
                 train_fde_list.append(metrics_train['fde'])
-                val_msae_list.append(metrics_val['mean_l2_speed'])
 
                 if metrics_val.get('ade') == min(val_ade_list) or metrics_val['ade'] < min(val_ade_list) or metrics_val.get('fde') == min(val_fde_list) or metrics_val['fde'] < min(val_fde_list):
                     checkpoint['g_best_state'] = generator.state_dict()
@@ -168,9 +149,6 @@ def main():
                     checkpoint['best_g_state'] = generator.state_dict()
                 if metrics_val.get('fde') == min(val_fde_list) or metrics_val['fde'] < min(val_fde_list):
                     print('New low for final_disp_error')
-                if metrics_val.get('mean_l2_speed') == min(val_msae_list) or metrics_val['mean_l2_speed'] < min(val_msae_list):
-                    print('New low for Speed regressor model')
-                    checkpoint['best_regressor_state'] = speed_regressor.state_dict()
 
                 checkpoint['g_state'] = generator.state_dict()
                 checkpoint['g_optim_state'] = optimizer_g.state_dict()
@@ -190,17 +168,17 @@ def main():
         #speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
         #speed_regressor_loss_writer.close()
 
-        total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
-        print('total_val_ade_loss', total_val_ade_err)
+        #total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
+        #print('total_val_ade_loss', total_val_ade_err)
 
-        total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
-        print('total_val_fde_loss', total_val_fde_err)
+        #total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
+        #print('total_val_fde_loss', total_val_fde_err)
 
-        total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
-        print('total_train_ade_loss', total_train_ade_err)
+        #total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
+        #print('total_train_ade_loss', total_train_ade_err)
 
-        total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
-        print('total_train_fde_loss', total_train_fde_err)
+        #total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
+        #print('total_train_fde_loss', total_train_fde_err)
 
         #trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
         #valade.add_scalar('ade_loss', total_val_ade_err, epoch)
@@ -216,7 +194,6 @@ def main():
 
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
-    """This step is similar to Social GAN Code"""
     if USE_GPU:
         batch = [tensor.cuda() for tensor in batch]
     else:
@@ -265,52 +242,37 @@ def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):
 def speed_regressor_step(batch, generator, speed_regressor, optimizer_speed_regressor):
     losses = {}
     speed_loss = []
-
     if USE_GPU:
         batch = [tensor.cuda() for tensor in batch]
     else:
         batch = [tensor for tensor in batch]
     if MULTI_CONDITIONAL_MODEL:
-        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed,
-        obs_label, pred_label, obs_obj_rel_speed) = batch
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_label, pred_label, obs_obj_rel_speed) = batch
     else:
-        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed,
-         pred_ped_speed, obs_obj_rel_speed) = batch
+        (obs_traj, pred_traj_gt, obs_traj_rel, pred_traj_gt_rel, loss_mask, seq_start_end, obs_ped_speed, pred_ped_speed, obs_obj_rel_speed) = batch
 
     if MULTI_CONDITIONAL_MODEL:
-        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                              pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
+        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=obs_label, pred_label=pred_label)
     else:
-        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed,
-                                  pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
-
+        _, final_enc_h = generator(obs_traj, obs_traj_rel, seq_start_end, obs_ped_speed, pred_ped_speed, pred_traj_gt, TRAIN_METRIC, None, obs_obj_rel_speed, obs_label=None, pred_label=None)
     fake_ped_speed = speed_regressor(obs_ped_speed, final_enc_h)
-
-    speed_loss.append(L2_LOSS_WEIGHT * mae_loss(
-            fake_ped_speed,
-            pred_ped_speed,
-            mode='raw',
-            speed_reg='speed_regressor'))
-
+    loss_mask = loss_mask[:, OBS_LEN:]
+    speed_loss.append(L2_LOSS_WEIGHT * mae_loss(fake_ped_speed, pred_ped_speed, mode='raw', speed_reg='speed_regressor'))
     total_speed_loss = torch.zeros(1).to(pred_ped_speed)
     speed_loss = torch.stack(speed_loss, dim=1)
-
     for start, end in seq_start_end.data:
         _speed_loss = speed_loss[start:end]
         _speed_loss = torch.sum(_speed_loss, dim=0)
         _speed_loss = torch.min(_speed_loss) / torch.sum(loss_mask[start:end])
         total_speed_loss += _speed_loss
     losses['Speed_Regression_Loss'] = total_speed_loss.item()
-
     optimizer_speed_regressor.zero_grad()
     total_speed_loss.backward()
     optimizer_speed_regressor.step()
-
     return losses
 
 
 def generator_step(batch, generator, discriminator, g_loss_fn, optimizer_g):
-    """This step is similar to Social GAN Code"""
     if USE_GPU:
         batch = [tensor.cuda() for tensor in batch]
     else:
@@ -438,7 +400,6 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn, speed_regressor)
             g_l2_losses_rel.append(g_l2_loss_rel.item())
             disp_error.append(ade.item())
             f_disp_error.append(fde.item())
-            mean_speed_disp_error.append(abs_speed_los.item())
 
             loss_mask_sum += torch.numel(loss_mask.data)
             total_traj += pred_traj_gt.size(1)
@@ -450,7 +411,6 @@ def check_accuracy(loader, generator, discriminator, d_loss_fn, speed_regressor)
     metrics['g_l2_loss_rel'] = sum(g_l2_losses_rel) / loss_mask_sum
     metrics['ade'] = sum(disp_error) / (total_traj * PRED_LEN)
     metrics['fde'] = sum(f_disp_error) / total_traj
-    metrics['mean_l2_speed'] = sum(mean_speed_disp_error) / len(mean_speed_disp_error)
 
     generator.train()
     return metrics
@@ -465,31 +425,6 @@ def cal_l2_losses(pred_traj_gt, pred_traj_gt_rel, pred_traj_fake, pred_traj_fake
 def cal_mae_speed_loss(pred_speed_gt, pred_speed_fake):
     g_l2_speed_loss = mae_loss(pred_speed_gt, pred_speed_fake, speed_reg='speed_reg', mode='sum')
     return g_l2_speed_loss
-
-
-def cal_msae(real_speed, fake_traj):
-    fake_output_speed = fake_speed(fake_traj)
-    real_speed = real_speed.permute(1, 0, 2)
-    msae = mean_speed_error(real_speed, fake_output_speed)
-    return msae
-
-
-def fake_speed(fake_traj):
-    output_speed = []
-    sigmoid_speed = nn.Sigmoid()
-    for a, b in zip(fake_traj[:, :], fake_traj[1:, :]):
-        dist = torch.pairwise_distance(a, b)
-        speed = sigmoid_speed(dist)
-        output_speed.append(speed.view(1, -1))
-    output_fake_speed = torch.cat(output_speed, dim=0).unsqueeze(dim=2).permute(1, 0, 2)
-    return output_fake_speed
-
-
-def cal_fse(real_speed, fake_traj):
-    last_two_traj_info = fake_traj[-2:, :, :]
-    fake_output_speed = fake_speed(last_two_traj_info)
-    fse = final_speed_error(real_speed.unsqueeze(dim=2), fake_output_speed)
-    return fse
 
 
 if __name__ == '__main__':

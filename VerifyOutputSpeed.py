@@ -51,7 +51,8 @@ def inverse_sigmoid(speeds, max_speed=None, labels=None):
                     s = a / AGENT_MAX_SPEED
                     simulated_speed.append(s.view(1, 1))
         simulated_speed = torch.cat(simulated_speed, dim=0)
-        print('the labels are: ', labels)
+        for a in labels:
+            print('the labels are: ', a)
         print("The current speeds are: ", simulated_speed.view(PRED_LEN-1, -1))
 
 
@@ -63,19 +64,6 @@ def get_speed_from_distance(distance):
         speed = distance / FRAMES_PER_SECOND_SINGLE_CONDITION
         sigmoid_speed = torch.sigmoid(speed)
     return sigmoid_speed
-
-
-def get_max_speed(path):
-    if path == "eth":
-        return ZARA1_MAX_SPEED
-    elif path == "hotel":
-        return ETH_MAX_SPEED
-    elif path == "zara1":
-        return ETH_MAX_SPEED
-    elif path == "zara2":
-        return ETH_MAX_SPEED
-    elif path == "univ":
-        return ETH_MAX_SPEED
 
 
 def verify_speed(traj, sequences, labels=None):
@@ -90,5 +78,5 @@ def verify_speed(traj, sequences, labels=None):
     if MULTI_CONDITIONAL_MODEL:
         inverse_sigmoid(speed, labels=label)
     else:
-        maxspeed= 2
+        maxspeed= SINGLE_AGENT_MAX_SPEED
         inverse_sigmoid(speed, max_speed=maxspeed)
