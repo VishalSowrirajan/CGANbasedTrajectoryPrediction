@@ -1,7 +1,7 @@
 # **Conditional Generative Adversarial Networks for Speed Control in TrajectorySimulation**
 
 ##Architecture Overview
-![Arch](/arch.pdf)
+![Arch](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/feature/full_network/arch.pdf)
 
 
 Pedestrian Simulation with Original Speed and Maximum speed:
