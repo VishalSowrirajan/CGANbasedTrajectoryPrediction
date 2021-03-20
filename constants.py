@@ -68,9 +68,7 @@ NOISE_DIM = (8, )
 L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
-POOLING_TYPE = False
-AGGREGATION_TYPE = False
-ATTENTION_TYPE = False
+AGGREGATION_TYPE = 'None'  # the aggregations can be pooling or concat or attention or None
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS

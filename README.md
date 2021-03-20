@@ -23,24 +23,30 @@ To install all dependencies, run:
 pip install -r requirements.txt
 ````
 
-Change the necessary fields in Constants.py and Once changed, run the following command:
+To use the pre-trained model, follow:
+- For Single-agent: 
+    - To run the model without aggregation: change the flag AGGREGATION_TYPE = 'None' and use the checkpoints from the folder 'NoAgg'
+    - To run the model with PM: change the flag AGGREGATION_TYPE = 'pooling' and use the checkpoints from the folder 'PM'
+    - To run the model with Concat: change the flag AGGREGATION_TYPE = 'concat' and use the checkpoints from the folder 'Concat'
+    - To run the model with Attention: change the flag AGGREGATION_TYPE = 'attention' and use the checkpoints from the folder 'Attention'
+
+After changing the necessary flags, run:    
 ````
 python train.py
 ````
 
-To evaluate the model with actual ground_truth trajectory speed, run:
+* For Simulation: change the TEST_METRIC to 2 and select one of the following options in CONSTANTS.py:
+    * For Single-agent simulation:
+        * To maintain constant speeds for all pedestrians: Change the flag CONSTANT_SPEED_SINGLE_CONDITION to True and enter a value between 0 and 1 in CS_SINGLE_CONDITION variable
+        * To stop all the pedestrians: Change the flag STOP_PED_SINGLE_CONDITION to True
+    * For Multi-agent Simulation:
+        * To impose different speeds to different agents: Change the flag DIFFERENT_SPEED_MULTI_CONDITION to True and enter a value between 0 and 1 to AV_SPEED, OTHER_SPEED, AGENT_SPEED. 
+
+* For Prediction: change the TEST_METRIC to 1.
+
+To evaluate the model with the simulated trajectories, run:
 ````
 python evaluate_model.py
 ````
 
-To simulate trajectories at different speed, change the TEST_METRIC to 2 and select one of the following options in CONSTANTS.py file.
-- To maintain constant speeds for all pedestrians: Change the flag CONSTANT_SPEED_FOR_ALL_PED to True and enter a value between 0 and 1 in CONSTANT_SPEED variable
-- To stop all the pedestrians: Change the flag STOP_PED to True
-- To increase speed at every frames: Change the flag ADD_SPEED_EVERY_FRAME TO True and enter a value between 0 and 1 in SPEED_TO_ADD variable.
-- To add speed to a particular frame: Change the flag ADD_SPEED_PARTICULAR_FRAME to True and enter the
-
-After the necessary changes, run:
-````
-python evaluate_model.py
-````
 **Note:** The speed value should be 0 < speed > 1

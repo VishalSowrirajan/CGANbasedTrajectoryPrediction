@@ -388,15 +388,6 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None, id=None):
                 # To stop all pedestrians
                 for a in range(start, end):
                     pred_traj_first_speed[a] = sigmoid(0)
-            elif ADD_SPEED_PARTICULAR_FRAME and len(FRAMES_TO_ADD_SPEED) > 0:
-                for a in range(start, end):
-                    # Add speed to particular frame for all pedestrian
-                    sorted_frames = FRAMES_TO_ADD_SPEED
-                    for frames in sorted_frames:
-                        if id == frames:
-                            pred_traj_first_speed[a] = sigmoid(ETH_MAX_SPEED * MAX_SPEED)
-                        else:
-                            pred_traj_first_speed[a] = pred_traj_first_speed[a]
 
     return pred_traj_first_speed.view(-1, 1)
 
@@ -421,13 +412,13 @@ class TrajectoryGenerator(nn.Module):
 
         self.noise_first_dim = NOISE_DIM[0]
 
-        if POOLING_TYPE:
+        if AGGREGATION_TYPE == 'pooling':
             self.conditionalPoolingModule = PoolingModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
             mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
-        elif AGGREGATION_TYPE:
+        elif AGGREGATION_TYPE == 'concat':
             self.aggregation_module = AggregationModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
             mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
-        elif ATTENTION_TYPE:
+        elif AGGREGATION_TYPE == 'attention':
             self.attention_module = AttentionModule(h_dim=h_dim, mlp_input_dim=mlp_dim)
             mlp_decoder_context_dims = [h_dim + BOTTLENECK_DIM, MLP_DIM, h_dim - self.noise_first_dim]
         else:
@@ -455,13 +446,13 @@ class TrajectoryGenerator(nn.Module):
             final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=obs_label)
         else:
             final_encoder_h = self.encoder(obs_traj_rel, obs_ped_speed, label=None)
-        if POOLING_TYPE:
+        if AGGREGATION_TYPE == 'pooling':
             pm_final_vector = self.conditionalPoolingModule(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
             mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), pm_final_vector], dim=1)
-        elif AGGREGATION_TYPE:
+        elif AGGREGATION_TYPE == 'concat':
             agg_final_vector = self.aggregation_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
             mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), agg_final_vector], dim=1)
-        elif ATTENTION_TYPE:
+        elif AGGREGATION_TYPE == 'attention':
             attn_final_vector = self.attention_module(final_encoder_h, seq_start_end, train_or_test, obs_traj[-1, :, :])
             mlp_decoder_context_input = torch.cat([final_encoder_h.view(-1, self.h_dim), attn_final_vector], dim=1)
         else:
