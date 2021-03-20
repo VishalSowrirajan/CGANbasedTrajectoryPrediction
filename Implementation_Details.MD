@@ -20,7 +20,7 @@ The speed forecasting block uses a single layer of LSTMs with 32 dimensions. The
 Similar to the feature extractor, we embed our inputs to a fixed size vector. The hidden states of the decoder are passed through a FC network of 32 and 2 units with the outputs representing the next timestep relative coordinates.
 
 ### Discriminator: 
-In discriminator, the encoder LSTM uses 1 hidden layer and 64 hidden dimensions. The final hidden state of the encoder in discriminator is passed through a MLP of dimension [64, 1028, 1] where the final dimension represents the classification score.
+In discriminator, the encoder LSTM uses 1 hidden layer and 64 hidden dimensions. The final hidden state of the encoder in discriminator is passed through a MLP of dimension 64, 1028 and 1 where the final dimension represents the classification score.
 
 
 We train the GAN and simultaneously train the speed forecaster. During prediction of pedestrians we condition the trajectory decoder with values obtained from the speed forecaster. During multi-agent prediction, we also use the class labels and condition the latent space and the decoder with it. During simulation, we use user defined values as the condition.
