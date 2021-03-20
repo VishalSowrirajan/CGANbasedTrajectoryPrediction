@@ -1,14 +1,14 @@
 # **Conditional Generative Adversarial Networks for Speed Control in TrajectorySimulation**
 
-##Architecture Overview
+# Architecture Overview
 Arch overview:
 ![OriginalSpeedPlot1](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/feature/full_network/arch.png)
 
 
-Pedestrian Simulation with Original Speed and Maximum speed:
+Single agent Simulation with GT (left) and Maximum speed (0.9):
 ![OriginalSpeedPlot](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/master/Plots/Real%20and%20Simulated%20Traj%20-%20Max%20Speed.gif)
 
-Pedestrian Simulation with Original Speed and No speed (Stop pedestrians):
+Single agent Simulation with GT (left) and Minimum speed (0.0):
 ![IncreasedSpeedPlot](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/master/Plots/Real%20vs%20Simulated%20-%20Stop%20ped.gif)
 
 **To reproduce the project, run the following command:**
@@ -30,10 +30,6 @@ To use the pre-trained model, follow:
     - To run the model with Concat: change the flag AGGREGATION_TYPE = 'concat' and use the checkpoints from the folder 'Concat'
     - To run the model with Attention: change the flag AGGREGATION_TYPE = 'attention' and use the checkpoints from the folder 'Attention'
 
-After changing the necessary flags, run:    
-````
-python train.py
-````
 
 * For Simulation: change the TEST_METRIC to 2 and select one of the following options in CONSTANTS.py:
     * For Single-agent simulation:
@@ -50,3 +46,10 @@ python evaluate_model.py
 ````
 
 **Note:** The speed value should be 0 < speed > 1
+
+To train the model from scratch, 
+
+Change the CHECKPOINT_NAME (provide a new filename) and run    
+````
+python train.py
+````
