@@ -2,7 +2,7 @@
 
 ##Architecture Overview
 Arch overview:
-![OriginalSpeedPlot1](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/feature/full_network/arch.pdf)
+![OriginalSpeedPlot1](https://github.com/VishalSowrirajan/CGANbasedTrajectoryPrediction/blob/feature/full_network/arch.png)
 
 
 Pedestrian Simulation with Original Speed and Maximum speed:
