@@ -10,7 +10,7 @@ SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
 SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
 SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
 
-# NUMBER OF CONDITION FLAG - activate any one of the following flags
+# Activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = False  # For single condition
 MULTI_CONDITIONAL_MODEL = True  # For multi condition
 
@@ -33,11 +33,11 @@ ACTIVATION_LEAKYRELU = 'leakyrelu'
 ACTIVATION_SIGMOID = 'sigmoid'
 
 # Time between consecutive frames
-FRAMES_PER_SECOND_SINGLE_CONDITION = 0.4
-FRAMES_PER_SECOND_MULTI_CONDITION = 0.1
+FRAMES_PER_SECOND_SINGLE_CONDITION = 0.4  # for eth and ucy
+FRAMES_PER_SECOND_MULTI_CONDITION = 0.1  # for argoverse
 NORMALIZATION_FACTOR = 10
 
-# ENCODER DECODER HIDDEN DIMENSION OPTIONS FOR SINGLE AND MULTI CONDITION
+# HIDDEN DIMENSION OPTIONS FOR SINGLE AND MULTI CONDITION
 H_DIM_GENERATOR_MULTI_CONDITION = 32
 H_DIM_DISCRIMINATOR_MULTI_CONDITION = 64
 
@@ -47,7 +47,6 @@ H_DIM_DISCRIMINATOR_SINGLE_CONDITION = 64
 MLP_INPUT_DIM_MULTI_CONDITION = 6
 MLP_INPUT_DIM_SINGLE_CONDITION = 3
 
-# HYPER PARAMETERS OPTIONS
 G_LEARNING_RATE, D_LEARNING_RATE = 1e-3, 1e-3
 NUM_LAYERS = 1
 DROPOUT = 0
@@ -63,7 +62,7 @@ L2_LOSS_WEIGHT = 1
 
 NUM_ITERATIONS = 3200
 AGGREGATION_TYPE = 'None'  # the aggregations can be pooling or concat or attention or None
-USE_GPU = 0
+USE_GPU = 0  # use 1 for ETH/UCY and 0 for Argoverse
 
 # SPEED CONTROL FLAGS
 TEST_METRIC = 2  # To simulate trajectories, change the flag to 2 and for prediction environment, change the flag to 1.
@@ -78,12 +77,7 @@ AV_SPEED = 0.2
 OTHER_SPEED = 0.9
 AGENT_SPEED = 0.5
 
-CONSTANT_SPEED_MULTI_CONDITION = False  # CONSTANT_SPEED flag for multi condition
-CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
-
-# Below flag is set to true if single condition model on eth/ucy dataset is set to true.
-
-# Change any one of the below flag to True
+# Change any one of the below flag to True for Single Condition
 STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
 
 CONSTANT_SPEED_SINGLE_CONDITION = True
