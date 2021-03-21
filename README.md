@@ -24,18 +24,19 @@ pip install -r requirements.txt
 ````
 
 To use the pre-trained model, follow:
-- For Single-agent: 
+- For Single-agent, turn USE_GPU flag to 1 and: 
     - To run the model without aggregation: change the flag AGGREGATION_TYPE = 'None' and use the checkpoints from the folder 'NoAgg'
     - To run the model with PM: change the flag AGGREGATION_TYPE = 'pooling' and use the checkpoints from the folder 'PM'
     - To run the model with Concat: change the flag AGGREGATION_TYPE = 'concat' and use the checkpoints from the folder 'Concat'
     - To run the model with Attention: change the flag AGGREGATION_TYPE = 'attention' and use the checkpoints from the folder 'Attention'
+- For Multi-agent, turn USE_GPU flag to 0 and change the flag AGGREGATION_TYPE = 'None' and use the checkpoints from the folder 'MultiAgent'
 
 
 * For Simulation: change the TEST_METRIC to 2 and select one of the following options in CONSTANTS.py:
-    * For Single-agent simulation:
+    * For Single-agent simulation, turn USE_GPU flag to 1 and:
         * To maintain constant speeds for all pedestrians: Change the flag CONSTANT_SPEED_SINGLE_CONDITION to True and enter a value between 0 and 1 in CS_SINGLE_CONDITION variable
         * To stop all the pedestrians: Change the flag STOP_PED_SINGLE_CONDITION to True
-    * For Multi-agent Simulation:
+    * For Multi-agent Simulation, turn USE_GPU flag to 0 and:
         * To impose different speeds to different agents: Change the flag DIFFERENT_SPEED_MULTI_CONDITION to True and enter a value between 0 and 1 to AV_SPEED, OTHER_SPEED, AGENT_SPEED. 
 
 * For Prediction: change the TEST_METRIC to 1.
