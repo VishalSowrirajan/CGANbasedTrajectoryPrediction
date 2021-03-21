@@ -145,7 +145,6 @@ def get_min_max_distance(seq_len, all_files):
 
 
 class Preprocessor(Dataset):
-    """Dataloder for the Trajectory datasets"""
 
     def __init__(
             self, data_dir, metric=0, train_or_test = None
@@ -204,19 +203,48 @@ class Preprocessor(Dataset):
                                                    zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
                         curr_obj_y_axis_new = [0.0] + [np.square(float(t) - float(s)) for s, t in
                                                    zip(curr_obj_seq[:, 4], curr_obj_seq[1:, 4])]
+                        curr_obj_dist = np.sqrt(np.add(curr_obj_x_axis_new, curr_obj_y_axis_new))
                     else:
-                        curr_obj_x_axis_new = [0.0] + [np.square(t - s) for s, t in
-                                                       zip(curr_obj_seq[:, 2], curr_obj_seq[1:, 2])]
-                        curr_obj_y_axis_new = [0.0] + [np.square(t - s) for s, t in
-                                                       zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
+                        if EXTRAPOLATE_MAX or EXTRAPOLATE_MID or EXTRAPOLATE_MIN:
+                            curr_obj_x_axis_new = [np.square(t - s) for s, t in
+                                                           zip(curr_obj_seq[:, 2], curr_obj_seq[1:, 2])]
+                            curr_obj_y_axis_new = [np.square(t - s) for s, t in
+                                                           zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
+                            curr_obj_dist = np.sqrt(np.add(curr_obj_x_axis_new, curr_obj_y_axis_new))
+                            curr_obj_dist = np.insert(curr_obj_dist, 0, curr_obj_dist[0])
+                        else:
+                            curr_obj_x_axis_new = [0.0] + [np.square(t - s) for s, t in
+                                                           zip(curr_obj_seq[:, 2], curr_obj_seq[1:, 2])]
+                            curr_obj_y_axis_new = [0.0] + [np.square(t - s) for s, t in
+                                                           zip(curr_obj_seq[:, 3], curr_obj_seq[1:, 3])]
 
-                    curr_obj_dist = np.sqrt(np.add(curr_obj_x_axis_new, curr_obj_y_axis_new))
-                    # As 50 records are available, we need to divide by 0.1 and we multiply by 10 as a normalization factor.
-                    # For faster computing, we skip that step and directly pass through sigmoid layer
+                            curr_obj_dist = np.sqrt(np.add(curr_obj_x_axis_new, curr_obj_y_axis_new))
                     if SINGLE_CONDITIONAL_MODEL:
                         curr_obj_abs_speed = curr_obj_dist / FRAMES_PER_SECOND_SINGLE_CONDITION
                     else:
                         curr_obj_abs_speed = curr_obj_dist / (FRAMES_PER_SECOND_MULTI_CONDITION * NORMALIZATION_FACTOR)
+                    if EXTRAPOLATE_MIN:
+                        if train_or_test == 'train' or train_or_test == 'val':
+                            if any(0.0 <= i <= 0.66 for i in curr_obj_abs_speed):
+                                continue
+                        else:
+                            if any(i > 0.66 for i in curr_obj_abs_speed):
+                                continue
+                    elif EXTRAPOLATE_MID:
+                        if train_or_test == 'train' or train_or_test == 'val':
+                            if any(0.66 <= i <= 1.32 for i in curr_obj_abs_speed):
+                                continue
+                        else:
+                            if any(0.66 > i > 1.32 for i in curr_obj_abs_speed):
+                                continue
+                    elif EXTRAPOLATE_MAX:
+                        if train_or_test == 'train' or train_or_test == 'val':
+                            if any(i >= 1.32 for i in curr_obj_abs_speed):
+                                continue
+                        else:
+                            if any(i < 1.32 for i in curr_obj_abs_speed):
+                                continue
+
                     curr_obj_abs_speed = [sigmoid(x) for x in curr_obj_abs_speed]
                     curr_obj_abs_speed = np.around(curr_obj_abs_speed, decimals=4)
                     curr_obj_abs_speed = np.transpose(curr_obj_abs_speed)
