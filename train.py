@@ -59,17 +59,26 @@ def main():
 
     print(iterations_per_epoch)
     generator.apply(init_weights)
-    generator.type(torch.FloatTensor).train()
+    if USE_GPU:
+        generator.type(torch.cuda.FloatTensor).train()
+    else:
+        generator.type(torch.FloatTensor).train()
     print('Here is the generator:')
     print(generator)
 
     discriminator.apply(init_weights)
-    discriminator.type(torch.FloatTensor).train()
+    if USE_GPU:
+        discriminator.type(torch.cuda.FloatTensor).train()
+    else:
+        discriminator.type(torch.FloatTensor).train()
     print('Here is the discriminator:')
     print(discriminator)
 
     speed_regressor.apply(init_weights)
-    speed_regressor.type(torch.FloatTensor).train()
+    if USE_GPU:
+        speed_regressor.type(torch.cuda.FloatTensor).train()
+    else:
+        speed_regressor.type(torch.FloatTensor).train()
     print('Here is the Speed Regressor:')
     print(speed_regressor)
 
@@ -163,34 +172,6 @@ def main():
             g_steps_left = G_STEPS
             if t >= NUM_ITERATIONS:
                 break
-        total_speed_loss = sum(sr_loss) / len(sr_loss)
-        print('total_speed_loss', total_speed_loss)
-        #speed_regressor_loss_writer.add_scalar('speed_loss', total_speed_loss, epoch)
-        #speed_regressor_loss_writer.close()
-
-        #total_val_ade_err = sum(val_ade_list) / len(val_ade_list)
-        #print('total_val_ade_loss', total_val_ade_err)
-
-        #total_val_fde_err = sum(val_fde_list) / len(val_fde_list)
-        #print('total_val_fde_loss', total_val_fde_err)
-
-        #total_train_ade_err = sum(train_ade_list) / len(train_ade_list)
-        #print('total_train_ade_loss', total_train_ade_err)
-
-        #total_train_fde_err = sum(train_fde_list) / len(train_fde_list)
-        #print('total_train_fde_loss', total_train_fde_err)
-
-        #trainade.add_scalar('ade_loss', total_train_ade_err, epoch)
-        #valade.add_scalar('ade_loss', total_val_ade_err, epoch)
-
-        #trainfde.add_scalar('fde_loss', total_train_fde_err, epoch)
-        #valfde.add_scalar('fde_loss', total_val_fde_err, epoch)
-
-        #trainade.close()
-        #valade.close()
-
-        #trainfde.close()
-        #valfde.close()
 
 
 def discriminator_step(batch, generator, discriminator, d_loss_fn, optimizer_d):

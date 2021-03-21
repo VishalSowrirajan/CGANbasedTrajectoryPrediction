@@ -368,19 +368,7 @@ def speed_control(pred_traj_first_speed, seq_start_end, label=None, id=None):
                             pred_traj_first_speed[c] = sigmoid(AGENT_SPEED * AGENT_MAX_SPEED)
         elif SINGLE_CONDITIONAL_MODEL:
             if CONSTANT_SPEED_SINGLE_CONDITION:
-                dataset_name = get_dataset_name(SINGLE_TEST_DATASET_PATH)
-                if dataset_name == 'eth':
-                    speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'hotel':
-                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'univ':
-                    speed_to_simulate = ZARA1_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'zara1':
-                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
-                elif dataset_name == 'zara2':
-                    speed_to_simulate = ETH_MAX_SPEED * CS_SINGLE_CONDITION
-
-                # To add an additional speed for each pedestrain and every frame
+                speed_to_simulate = SINGLE_AGENT_MAX_SPEED * CS_SINGLE_CONDITION
                 for a in range(start, end):
                     pred_traj_first_speed[a] = sigmoid(speed_to_simulate)
 
