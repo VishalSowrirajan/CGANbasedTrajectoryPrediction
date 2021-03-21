@@ -3,19 +3,18 @@ OBS_LEN = 20
 PRED_LEN = 30
 MULTI_TRAIN_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/train'
 MULTI_VAL_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/val'
-#CHECKPOINT_NAME = 'Checkpoints/Final_Checkpoints_ETH_UCY/zara2.pt'
 CHECKPOINT_NAME = 'Checkpoints/argoverse_50epochs_Random/2.pt'
 MULTI_TEST_DATASET_PATH = 'C:/Users/visha/MasterThesis/ArgoverseSamples/Speed_check_Test'
 
 SINGLE_TRAIN_DATASET_PATH = 'single_condition_dataset/eth/train'
 SINGLE_VAL_DATASET_PATH = 'single_condition_dataset/eth/val'
-SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/zara2/test'
+SINGLE_TEST_DATASET_PATH = 'single_condition_dataset/eth/test'
 
 # NUMBER OF CONDITION FLAG - activate any one of the following flags
 SINGLE_CONDITIONAL_MODEL = False  # For single condition
 MULTI_CONDITIONAL_MODEL = True  # For multi condition
 
-# MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS
+# MAX SPEEDS FOR ARGOVERSE AND ETH/UCY DATASETS: speed above the MAX_SPEEDS are still considered as high speeds.
 # for argoverse
 AV_MAX_SPEED = 2.46
 OTHER_MAX_SPEED = 1.71
@@ -67,11 +66,11 @@ AGGREGATION_TYPE = 'None'  # the aggregations can be pooling or concat or attent
 USE_GPU = 0
 
 # SPEED CONTROL FLAGS
-TEST_METRIC = 2  # 0 for ground_truth speed. To simulate trajectories, change the flag to 1. This flag is used during testing and inference phase.
+TEST_METRIC = 2  # To simulate trajectories, change the flag to 2 and for prediction environment, change the flag to 1.
 TRAIN_METRIC = 0  # Used for training the model with the ground truth
 VERIFY_OUTPUT_SPEED = 1
 
-# ADD_SPEED_EVERY_FRAME, STOP_PED, CONSTANT_SPEED_FOR_ALL_PED, ADD_SPEED_PARTICULAR_FRAME - Only one flag out of the 4 can be activated at once.
+# STOP_PED, CONSTANT_SPEED_FOR_ALL_PED - Only one flag out of the 2 can be activated at once.
 
 # Below flag is set to true if multi condition model on argoverse dataset is set to true.
 DIFFERENT_SPEED_MULTI_CONDITION = True
@@ -86,10 +85,6 @@ CS_MULTI_CONDITION = 0.2  # Constant speed multi condition
 
 # Change any one of the below flag to True
 STOP_PED_SINGLE_CONDITION = False  # Speed 0 will be imposed if the flag is set to True
-
-ADD_SPEED_PARTICULAR_FRAME = False  # FRAMES_TO_ADD_SPEED flag will be active only if ADD_SPEED_PARTICULAR_FRAME is True
-FRAMES_TO_ADD_SPEED = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]  # Provide a value between 0 to length of (predicted traj-1)
-MAX_SPEED = 0.9
 
 CONSTANT_SPEED_SINGLE_CONDITION = True
 CS_SINGLE_CONDITION = 0.9  # Constant speed single condition
